@@ -143,6 +143,8 @@ export function AddQuestionsPage() {
               onDone={(o) => {
                 setPlan(null);
                 setOutcome(o);
+                // Ask the browser not to evict the bank under storage pressure.
+                void navigator.storage?.persist?.();
               }}
             />
           </div>

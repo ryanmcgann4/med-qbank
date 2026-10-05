@@ -1,5 +1,5 @@
 import { Lightbulb, BookOpen } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import type { Confidence, SessionAnswer, StoredLecture, StoredQuestion } from '../db';
 import { letter } from '../lib/selection';
 import { QUESTION_TYPE_LABELS } from '../schema';
@@ -17,22 +17,62 @@ interface Props {
   interactive: boolean;
   onSelect?: (id: string) => void;
   onToggleStrike?: (id: string) => void;
+  /** Library browsing: show the answer without "your answer" framing. */
+  browse?: boolean;
+  /** Rendered under the explanation once revealed (e.g. edit/report tools). */
+  footer?: ReactNode;
+  /** In a live quiz: bring the result banner into view when the answer is revealed. */
+  scrollOnReveal?: boolean;
 }
 
-export function QuestionView({ question: q, lecture, order, answer, revealed, interactive, onSelect, onToggleStrike }: Props) {
+export function QuestionView({ question: q, lecture, order, answer, revealed, interactive, onSelect, onToggleStrike, browse, footer, scrollOnReveal }: Props) {
   const byId = new Map(q.options.map((o) => [o.id, o]));
   const correctLetter = letter(order.indexOf(q.correct_option));
   const chosenLetter = answer.chosen ? letter(order.indexOf(answer.chosen)) : null;
   const bannerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (revealed && interactive) bannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [revealed, interactive]);
+    if (revealed && scrollOnReveal) bannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [revealed, scrollOnReveal]);
 
   return (
     <div>
       <p className="whitespace-pre-line text-[17px] leading-relaxed sm:text-lg">{q.stem}</p>
       {q.image_url && <img src={q.image_url} alt="Question figure" className="mt-4 max-h-96 rounded-lg border border-slate-200 dark:border-slate-700" />}
+
+      {revealed && (
+        <div
+          ref={bannerRef}
+          role="status"
+          className={cn(
+            'mt-5 scroll-mt-32 rounded-xl border-2 px-4 py-3 text-lg font-semibold',
+            browse
+              ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100'
+              : answer.correct
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100'
+                : 'border-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/60 dark:text-rose-100',
+          )}
+        >
+          {browse ? (
+            <>Correct answer: {correctLetter}</>
+          ) : answer.correct ? (
+            <>✅ Correct answer: {correctLetter}</>
+          ) : chosenLetter ? (
+            <>
+              ❌ Incorrect — Correct answer: {correctLetter}
+              <span className="ml-2 text-base font-normal">(you chose {chosenLetter})</span>
+            </>
+          ) : (
+            <>⚪ Not answered — Correct answer: {correctLetter}</>
+          )}
+          {!browse && answer.confidence && (
+            <span className="mt-0.5 block text-sm font-normal opacity-80">
+              You marked: {CONFIDENCE_LABEL[answer.confidence]}
+              {answer.correct && answer.confidence === 'guess' && ' — lucky guess, this will come back tomorrow'}
+            </span>
+          )}
+        </div>
+      )}
 
       <div role="radiogroup" aria-label="Answer choices" className="mt-5 space-y-2.5">
         {order.map((id, i) => {
@@ -57,34 +97,6 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
 
       {revealed && (
         <div className="mt-6 space-y-4">
-          <div
-            ref={bannerRef}
-            role="status"
-            className={cn(
-              'scroll-mt-20 rounded-xl border-2 px-4 py-3 text-lg font-semibold',
-              answer.correct
-                ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100'
-                : 'border-rose-500 bg-rose-50 text-rose-900 dark:bg-rose-950/60 dark:text-rose-100',
-            )}
-          >
-            {answer.correct ? (
-              <>✅ Correct answer: {correctLetter}</>
-            ) : chosenLetter ? (
-              <>
-                ❌ Incorrect — Correct answer: {correctLetter}
-                <span className="ml-2 text-base font-normal">(you chose {chosenLetter})</span>
-              </>
-            ) : (
-              <>⚪ Not answered — Correct answer: {correctLetter}</>
-            )}
-            {answer.confidence && (
-              <span className="mt-0.5 block text-sm font-normal opacity-80">
-                You marked: {CONFIDENCE_LABEL[answer.confidence]}
-                {answer.correct && answer.confidence === 'guess' && ' — lucky guess, this will come back tomorrow'}
-              </span>
-            )}
-          </div>
-
           <section>
             <h3 className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Explanation</h3>
             <p className="whitespace-pre-line leading-relaxed">{q.explanation}</p>
@@ -122,6 +134,7 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
             {q.editedAt && <Badge tone="amber">edited</Badge>}
             <code className="ml-auto text-xs text-slate-400">{q.qid}</code>
           </div>
+          {footer}
         </div>
       )}
     </div>

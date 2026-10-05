@@ -11,6 +11,8 @@ export interface StoredQuestion extends Question {
   updatedAt: number;
   /** Set when the question was edited in-app; cleared if a re-import overwrites it. */
   editedAt: number | null;
+  /** The imported version, saved on the first in-app edit so it can be restored. */
+  original?: Question | null;
 }
 
 export interface StoredLecture extends Lecture {

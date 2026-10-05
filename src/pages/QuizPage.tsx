@@ -2,8 +2,9 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Flag, Keyboard, NotebookPen, Timer, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { QuestionTools, NoteModal } from '../components/QuestionTools';
 import { CONFIDENCE_LABEL, QuestionView } from '../components/QuestionView';
-import { Button, cn, inputClass, Kbd, Modal } from '../components/ui';
+import { Button, cn, Kbd, Modal } from '../components/ui';
 import { db, type Confidence, type QuizSession, type SessionAnswer, type StoredLecture, type StoredQuestion } from '../db';
 import { formatDuration } from '../lib/dates';
 import { recordAttempts, updateProgress } from '../lib/tracking';
@@ -23,16 +24,14 @@ export function QuizPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [session, setSession] = useState<QuizSession | null>(null);
-  const [data, setData] = useState<Loaded | null>(null);
   const [missing, setMissing] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState('');
   const [endOpen, setEndOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [nudge, setNudge] = useState(false);
   const latest = useRef<QuizSession | null>(null);
 
-  // Load the session and its questions once.
+  // Load the session once; after that this component owns it and persists changes.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -40,12 +39,6 @@ export function QuizPage() {
       if (cancelled) return;
       if (!s) return setMissing(true);
       if (s.finishedAt) return navigate(`/quiz/${s.id}/review`, { replace: true });
-      const qs = await db.questions.bulkGet(s.items.map((i) => i.qid));
-      const questions = new Map(qs.filter((q): q is StoredQuestion => !!q).map((q) => [q.qid, q]));
-      const lecIds = [...new Set([...questions.values()].map((q) => q.lecture_id))];
-      const ls = await db.lectures.bulkGet(lecIds);
-      if (cancelled) return;
-      setData({ questions, lectures: new Map(ls.filter((l): l is StoredLecture => !!l).map((l) => [l.lecture_id, l])) });
       setSession(s);
     })();
     return () => {
@@ -54,6 +47,14 @@ export function QuizPage() {
   }, [id, navigate]);
 
   const qids = session?.items.map((i) => i.qid).join('|') ?? '';
+  // Questions are live so an in-app edit shows up immediately.
+  const data = useLiveQuery(async (): Promise<Loaded | undefined> => {
+    if (!qids) return undefined;
+    const qs = await db.questions.bulkGet(qids.split('|'));
+    const questions = new Map(qs.filter((q): q is StoredQuestion => !!q).map((q) => [q.qid, q]));
+    const ls = await db.lectures.bulkGet([...new Set([...questions.values()].map((q) => q.lecture_id))]);
+    return { questions, lectures: new Map(ls.filter((l): l is StoredLecture => !!l).map((l) => [l.lecture_id, l])) };
+  }, [qids]);
   const progress = useLiveQuery(async () => {
     if (!qids) return new Map();
     const rows = await db.progress.bulkGet(qids.split('|'));
@@ -197,15 +198,7 @@ export function QuizPage() {
     if (item) void updateProgress(item.qid, { flagged: !p?.flagged });
   }, [item, p]);
 
-  const openNote = useCallback(() => {
-    setNoteDraft(p?.note ?? '');
-    setNoteOpen(true);
-  }, [p]);
-
-  const saveNote = () => {
-    if (item) void updateProgress(item.qid, { note: noteDraft.trim() });
-    setNoteOpen(false);
-  };
+  const openNote = useCallback(() => setNoteOpen(true), []);
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -345,6 +338,8 @@ export function QuizPage() {
           interactive={!revealed}
           onSelect={select}
           onToggleStrike={toggleStrike}
+          footer={<QuestionTools question={q} tools={['edit', 'report']} />}
+          scrollOnReveal
         />
       ) : (
         <p className="rounded-lg bg-amber-50 p-4 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -446,28 +441,7 @@ export function QuizPage() {
         </div>
       )}
 
-      <Modal open={noteOpen} onClose={() => setNoteOpen(false)} title="Note on this question">
-        <textarea
-          autoFocus
-          rows={5}
-          className={inputClass}
-          value={noteDraft}
-          onChange={(e) => setNoteDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote();
-          }}
-          placeholder="e.g. Confused NHE3 with ENaC — review slide 18"
-        />
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-slate-500">
-            <Kbd>⌘/Ctrl</Kbd> + <Kbd>Enter</Kbd> to save
-          </span>
-          <Button variant="secondary" className="ml-auto" onClick={() => setNoteOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={saveNote}>Save note</Button>
-        </div>
-      </Modal>
+      {noteOpen && <NoteModal qid={item.qid} initial={p?.note ?? ''} onClose={() => setNoteOpen(false)} />}
 
       <Modal open={endOpen} onClose={() => setEndOpen(false)} title={s.timed ? 'End this block?' : 'Finish this quiz?'}>
         <p className="text-slate-700 dark:text-slate-300">

@@ -22,3 +22,23 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* Chart tokens (validated: scripts in the dataviz skill, against white / slate-900 cards). */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #1baf7a;
+  --series-muted: #cbd5e1;
+  --chart-grid: #e2e8f0;
+  --chart-axis: #64748b;
+  --chart-baseline: #cbd5e1;
+  --chart-surface: #ffffff;
+}
+.dark {
+  --series-1: #3987e5;
+  --series-2: #199e70;
+  --series-muted: #334155;
+  --chart-grid: #1e293b;
+  --chart-axis: #94a3b8;
+  --chart-baseline: #334155;
+  --chart-surface: #0f172a;
+}

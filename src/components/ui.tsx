@@ -133,7 +133,19 @@ export function Stat({ label, value, sub, tone }: { label: string; value: ReactN
   );
 }
 
-export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  wide,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  wide?: boolean;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -146,7 +158,10 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-950/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      className={cn(
+        'm-auto max-h-[92dvh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-950/50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100',
+        wide ? 'w-[min(48rem,calc(100vw-1rem))]' : 'w-[min(32rem,calc(100vw-2rem))]',
+      )}
     >
       <div className="p-5">
         <h2 className="mb-3 text-lg font-semibold">{title}</h2>

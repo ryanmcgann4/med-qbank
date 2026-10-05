@@ -1,12 +1,16 @@
-import { BookOpenCheck, Home, Monitor, Moon, PlusCircle, Sun } from 'lucide-react';
+import { BarChart3, BookOpenCheck, Database, Home, Library, Monitor, Moon, PlusCircle, Sun } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { useTheme, type Theme } from '../hooks/useTheme';
+import { BackupBanner } from './BackupBanner';
+import { UpdateToast } from './UpdateToast';
 import { cn } from './ui';
 
 const NAV = [
   { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/quiz/new', label: 'Quiz', icon: BookOpenCheck, end: false },
   { to: '/add', label: 'Add', icon: PlusCircle, end: false },
+  { to: '/library', label: 'Library', icon: Library, end: false },
+  { to: '/stats', label: 'Stats', icon: BarChart3, end: false },
 ];
 
 const THEME_NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
@@ -46,10 +50,23 @@ export function Layout() {
               </NavLink>
             ))}
           </nav>
+          <NavLink
+            to="/data"
+            title="Backup, restore & export"
+            className={({ isActive }) =>
+              cn(
+                'ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm',
+                isActive ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
+              )
+            }
+          >
+            <Database className="h-4 w-4" />
+            <span className="hidden sm:inline">Data</span>
+          </NavLink>
           <button
             type="button"
             onClick={() => setTheme(THEME_NEXT[theme])}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
             title={`Theme: ${theme} (click to change)`}
           >
             <ThemeIcon className="h-4 w-4" />
@@ -57,14 +74,17 @@ export function Layout() {
           </button>
         </div>
       </header>
+      {!inQuiz && <BackupBanner />}
 
       <main className={cn('mx-auto max-w-5xl px-4 py-6', !inQuiz && 'pb-24 sm:pb-10')}>
         <Outlet />
       </main>
 
+      {!inQuiz && <UpdateToast />}
+
       {!inQuiz && (
         <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur sm:hidden dark:border-slate-800 dark:bg-slate-950/95">
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-5">
             {NAV.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}

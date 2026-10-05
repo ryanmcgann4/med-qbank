@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronDown, Flag, Home, RotateCcw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
+import { QuestionTools } from '../components/QuestionTools';
 import { CONFIDENCE_LABEL, QuestionView } from '../components/QuestionView';
 import { Badge, Button, Card, Chip, cn, PageHeader, pct, Stat } from '../components/ui';
 import { db, type Confidence, type QuizSession, type StoredLecture, type StoredQuestion } from '../db';
@@ -199,6 +200,7 @@ export function QuizReviewPage() {
                     answer={a}
                     revealed
                     interactive={false}
+                    footer={<QuestionTools question={q} />}
                   />
                 </div>
               )}
