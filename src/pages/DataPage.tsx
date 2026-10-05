@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { DatabaseBackup, Download, HardDrive, Layers, Trash2, Upload } from 'lucide-react';
+import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Button, Card, Chip, Field, inputClass, Modal, PageHeader, SectionTitle } from '../components/ui';
+import { Badge, Button, Card, Chip, cn, Field, inputClass, Modal, PageHeader, SectionTitle } from '../components/ui';
 import { db, getKV, type StatusKey } from '../db';
 import { useCandidates } from '../hooks/useBank';
 import { ankiCsv } from '../lib/anki';
@@ -10,6 +10,8 @@ import { formatDate, relativeDay, todayISO } from '../lib/dates';
 import { downloadText } from '../lib/download';
 import { emptyFilters, matchesFilters, weekKey } from '../lib/selection';
 import { STATUS_LABELS } from '../lib/status';
+import { useSyncState } from '../hooks/useSync';
+import { connect, disconnect, parseSetupCode, setupCode, syncNow } from '../lib/sync/controller';
 
 const ANKI_STATUSES: StatusKey[] = ['missed', 'ever_missed', 'lucky', 'flagged', 'reported', 'mastered'];
 
@@ -17,10 +19,175 @@ export function DataPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Your data" subtitle="Everything lives in this browser only. Back up regularly, and use backups to move between devices." />
+      <SyncSection />
       <BackupSection />
       <AnkiSection />
       <StorageSection />
     </div>
+  );
+}
+
+function SyncSection() {
+  const sync = useSyncState();
+  const [repo, setRepo] = useState('');
+  const [token, setToken] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
+
+  async function run(cfg: { repo: string; token: string; branch: string }) {
+    setBusy(true);
+    setError(null);
+    try {
+      await connect(cfg);
+      setToken('');
+      setCode('');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyCode() {
+    const c = setupCode();
+    if (!c) return;
+    await navigator.clipboard.writeText(c);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  const title = (
+    <span className="inline-flex items-center gap-2">
+      <Cloud className="h-5 w-5 text-indigo-600" /> Sync across devices
+    </span>
+  );
+
+  if (sync.configured) {
+    return (
+      <Card className="p-5">
+        <SectionTitle hint="Syncs when you open the app, when you leave it (e.g. lock your phone), about 15 seconds after you answer, and every few minutes.">
+          {title}
+        </SectionTitle>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          {sync.status === 'error' ? (
+            <Badge tone="amber">Sync issue</Badge>
+          ) : sync.status === 'syncing' ? (
+            <Badge tone="indigo">Syncing…</Badge>
+          ) : (
+            <Badge tone="green">On</Badge>
+          )}
+          <span className="text-slate-600 dark:text-slate-400">
+            Repo <code className="text-slate-900 dark:text-slate-100">{sync.repo}</code>
+            {sync.lastSyncedAt && ` · last synced ${formatDate(sync.lastSyncedAt)} ${new Date(sync.lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+          </span>
+        </div>
+        {sync.error && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{sync.error}</p>}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button onClick={() => void syncNow()} disabled={sync.status === 'syncing'}>
+            <RefreshCw className={cn('h-4 w-4', sync.status === 'syncing' && 'animate-spin')} /> Sync now
+          </Button>
+          <Button variant="secondary" onClick={copyCode}>
+            {copied ? <Check className="h-4 w-4" /> : <ClipboardCopy className="h-4 w-4" />}
+            {copied ? 'Copied' : 'Copy setup code for another device'}
+          </Button>
+          <Button variant="ghost" onClick={() => setConfirmOff(true)}>
+            Turn off on this device
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          The setup code contains your access token. Send it only to yourself (AirDrop, Notes), then paste it on the other device&apos;s Data page.
+        </p>
+        <Modal open={confirmOff} onClose={() => setConfirmOff(false)} title="Turn off sync on this device?">
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            Your questions stay on this device and in the repo; they just stop syncing here. The token is removed from this browser.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmOff(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                disconnect();
+                setConfirmOff(false);
+              }}
+            >
+              Turn off
+            </Button>
+          </div>
+        </Modal>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-5">
+      <SectionTitle hint="Answer on your phone, pick up on your laptop. Your data goes to a private GitHub repository you own, and every sync is a saved version.">
+        {title}
+      </SectionTitle>
+
+      <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+        <div className="text-sm font-semibold">Already set up on another device?</div>
+        <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
+          On that device: Data → <b>Copy setup code</b>. Paste it here.
+        </p>
+        <div className="mt-2 flex gap-2">
+          <input className={inputClass} value={code} onChange={(e) => setCode(e.target.value)} placeholder="qbank-sync-1:…" autoComplete="off" spellCheck={false} />
+          <Button
+            disabled={!code.trim() || busy}
+            onClick={() => {
+              try {
+                void run(parseSetupCode(code));
+              } catch (e) {
+                setError((e as Error).message);
+              }
+            }}
+          >
+            Connect
+          </Button>
+        </div>
+      </div>
+
+      <details className="mt-4" open={!code}>
+        <summary className="cursor-pointer text-sm font-semibold">First device: connect a repository</summary>
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700 dark:text-slate-300">
+          <li>
+            Have a <b>private</b> GitHub repository with a README (e.g. <code>qbank-data</code>).{' '}
+            <a className="inline-flex items-center gap-0.5 text-indigo-600 underline dark:text-indigo-400" href="https://github.com/new" target="_blank" rel="noreferrer">
+              New repository <ExternalLink className="h-3 w-3" />
+            </a>
+          </li>
+          <li>
+            Create a token:{' '}
+            <a
+              className="inline-flex items-center gap-0.5 text-indigo-600 underline dark:text-indigo-400"
+              href="https://github.com/settings/personal-access-tokens/new"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Fine-grained token <ExternalLink className="h-3 w-3" />
+            </a>
+            . Set <b>Repository access → Only select repositories →</b> your data repo, and <b>Permissions → Contents → Read and write</b>. Pick an
+            expiration you&apos;re comfortable with (up to a year).
+          </li>
+          <li>Paste both below.</li>
+        </ol>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Repository" hint="owner/name">
+            <input className={inputClass} value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="ryanmcgann4/qbank-data" autoComplete="off" spellCheck={false} />
+          </Field>
+          <Field label="Token" hint="Stays in this browser only">
+            <input type="password" className={inputClass} value={token} onChange={(e) => setToken(e.target.value)} placeholder="github_pat_…" autoComplete="off" />
+          </Field>
+        </div>
+        <Button className="mt-3" disabled={!repo.trim() || !token.trim() || busy} onClick={() => void run({ repo, token, branch: '' })}>
+          {busy ? 'Connecting…' : 'Connect & sync'}
+        </Button>
+      </details>
+      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+    </Card>
   );
 }
 
@@ -248,7 +415,8 @@ function StorageSection() {
       </div>
       <Modal open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete all data in this browser?">
         <p className="text-sm text-slate-700 dark:text-slate-300">
-          This permanently removes every question, lecture, answer, note, and quiz stored here. Download a backup first if you might want it back.
+          This permanently removes every question, lecture, answer, note, and quiz stored here. Download a backup first if you might want it back. If sync
+          is on, this only clears this device: the next sync downloads everything again from your other devices.
         </p>
         <div className="mt-3">
           <Field label='Type "delete" to confirm'>

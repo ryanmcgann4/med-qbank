@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { db, getKV, setKV } from '../db';
 import { BACKUP_SNOOZE_KEY, downloadBackup, LAST_BACKUP_KEY } from '../lib/backup';
 import { daysBetween, DAY_MS } from '../lib/dates';
+import { getSyncState } from '../lib/sync/controller';
 import { Button } from './ui';
 
 const WEEK = 7 * DAY_MS;
@@ -20,6 +21,9 @@ export function BackupBanner() {
     };
   }, []);
   if (!state?.first) return null;
+  // With sync working, the GitHub repo already keeps a versioned copy.
+  const sync = getSyncState();
+  if (sync.configured && sync.lastSyncedAt && now - sync.lastSyncedAt < WEEK) return null;
   const since = state.last ?? state.first;
   if (now - since < WEEK || (state.snoozed && now - state.snoozed < WEEK)) return null;
 

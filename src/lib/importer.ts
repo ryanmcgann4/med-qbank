@@ -150,8 +150,14 @@ export async function applyImport(
  * show as "removed from bank" there.
  */
 export async function deleteLectures(lectureIds: readonly string[], database: QBankDB = defaultDb): Promise<{ lectures: number; questions: number }> {
-  return database.transaction('rw', [database.questions, database.lectures, database.progress, database.attempts], async () => {
+  const tables = [database.questions, database.lectures, database.progress, database.attempts, database.deletions];
+  return database.transaction('rw', tables, async () => {
     const qids = (await database.questions.where('lecture_id').anyOf([...lectureIds]).primaryKeys()) as string[];
+    const at = Date.now();
+    await database.deletions.bulkPut([
+      ...lectureIds.map((key) => ({ id: `lecture:${key}`, kind: 'lecture' as const, key, at })),
+      ...qids.map((key) => ({ id: `question:${key}`, kind: 'question' as const, key, at })),
+    ]);
     await database.attempts.where('qid').anyOf(qids).delete();
     await database.progress.bulkDelete(qids);
     await database.questions.bulkDelete(qids);

@@ -2,6 +2,7 @@ import { BarChart3, BookOpenCheck, Database, Home, Library, Monitor, Moon, PlusC
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { BackupBanner } from './BackupBanner';
+import { SyncIndicator } from './SyncIndicator';
 import { UpdateToast } from './UpdateToast';
 import { cn } from './ui';
 
@@ -50,12 +51,14 @@ export function Layout() {
               </NavLink>
             ))}
           </nav>
+          <span className="ml-auto" />
+          <SyncIndicator />
           <NavLink
             to="/data"
-            title="Backup, restore & export"
+            title="Sync, backup, restore & export"
             className={({ isActive }) =>
               cn(
-                'ml-auto inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm',
+                'inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm',
                 isActive ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800',
               )
             }

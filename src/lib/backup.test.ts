@@ -72,14 +72,14 @@ describe('backup', () => {
     await updateProgress(Q1, { note: 'laptop note' }, a);
     await recordAttempts([att(Q1, T0 + 86_400_000, true, 'phone'), att(Q2, T0, true, 'phone')], b);
     await updateProgress(Q1, { flagged: true, note: 'phone note' }, b);
+    await b.progress.update(Q1, { metaUpdatedAt: Date.now() + 1000 }); // definitely the newer edit
 
     await restoreBackup(await exportBackup(b), 'merge', a);
 
     expect(await a.attempts.count()).toBe(3);
     const p1 = await a.progress.get(Q1);
-    expect(p1).toMatchObject({ timesSeen: 2, timesCorrect: 1, lastResult: 'correct', flagged: true });
-    expect(p1!.note).toContain('laptop note');
-    expect(p1!.note).toContain('phone note');
+    // The phone's flag + note were set after the laptop's note, so they win.
+    expect(p1).toMatchObject({ timesSeen: 2, timesCorrect: 1, lastResult: 'correct', flagged: true, note: 'phone note' });
     expect(await a.progress.get(Q2)).toMatchObject({ timesSeen: 1, timesCorrect: 1 });
     expect(await a.questions.count()).toBe(10);
 

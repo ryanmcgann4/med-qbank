@@ -35,7 +35,8 @@ export async function recordAttempts(attempts: Omit<Attempt, 'id'>[], database: 
 export async function updateProgress(qid: string, patch: Partial<Omit<Progress, 'qid'>>, database: QBankDB = defaultDb): Promise<void> {
   await database.transaction('rw', database.progress, async () => {
     const prev = (await database.progress.get(qid)) ?? emptyProgress(qid);
-    await database.progress.put({ ...prev, ...patch, qid });
+    const meta = 'flagged' in patch || 'note' in patch || 'report' in patch;
+    await database.progress.put({ ...prev, ...patch, qid, ...(meta ? { metaUpdatedAt: Date.now() } : {}) });
   });
 }
 

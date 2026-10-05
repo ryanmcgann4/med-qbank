@@ -46,6 +46,17 @@ export interface Progress {
   /** "Possibly incorrect" report, so you can check it against the lecture. */
   report: { reason: string; at: number } | null;
   srs: SrsState | null;
+  /** When flag/note/report last changed; newest wins when devices sync. */
+  metaUpdatedAt?: number;
+}
+
+/** Tombstone so a delete on one device propagates instead of being re-added by sync. */
+export interface Deletion {
+  /** `lecture:<lecture_id>` or `question:<qid>` */
+  id: string;
+  kind: 'lecture' | 'question';
+  key: string;
+  at: number;
 }
 
 export interface Attempt {
@@ -149,6 +160,7 @@ export class QBankDB extends Dexie {
   sessions!: EntityTable<QuizSession, 'id'>;
   imports!: EntityTable<ImportRecord, 'id'>;
   kv!: EntityTable<KV, 'key'>;
+  deletions!: EntityTable<Deletion, 'id'>;
 
   constructor(name = 'med-qbank') {
     super(name);
@@ -161,6 +173,7 @@ export class QBankDB extends Dexie {
       imports: '++id, importedAt',
       kv: 'key',
     });
+    this.version(2).stores({ deletions: 'id, at' });
   }
 }
 

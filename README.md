@@ -147,6 +147,30 @@ answers in a row. The home screen shows how many are due today.
   **Reported issue** in the quiz builder or Library to check them against the
   slides, then **Mark resolved**.
 
+## Sync between phone and laptop
+
+**Data → Sync across devices** keeps every device's bank in sync through a
+private GitHub repository you own. Each device keeps a full local copy, so the
+app still works offline. It syncs when you open the app, when you leave it
+(e.g. lock your phone), about 15 seconds after you answer, and every few
+minutes while it's open. The header shows the status; tap it to sync now.
+
+Setup, once:
+
+1. Create a **private** repo with a README (e.g. `qbank-data`).
+2. Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new):
+   *Only select repositories →* that repo, *Permissions → Contents → Read and write*.
+3. On your first device, paste the repo (`owner/name`) and token and click
+   **Connect & sync**.
+4. On each other device, use **Copy setup code** on the first device, send it to
+   yourself (AirDrop/Notes), and paste it under *Already set up on another device?*
+
+How merging works: answers from every device are combined and progress is
+recalculated from the combined history. Edits, flags, and notes go newest-first,
+and deleting a day or lecture removes it everywhere. The repo's commit history
+doubles as versioned backups. The token is stored only in that browser and is
+never included in backups or the synced data.
+
 ## Backup, restore, and moving between devices
 
 On the **Data** page:
@@ -185,6 +209,7 @@ src/lib/backup.ts      export, restore, two-device merge
 src/lib/anki.ts        Anki CSV
 src/lib/stats.ts       aggregations for the Stats page
 src/lib/edit.ts        in-app edits + revert
+src/lib/sync/…         GitHub sync: file layout (shards), Git client, sync engine, auto-sync triggers
 src/lib/prompt.ts      the generator prompt
 src/pages/…            Home, Add, Quiz builder, Quiz runner, Review, Library, Stats, Data
 ```
