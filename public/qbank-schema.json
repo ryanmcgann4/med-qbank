@@ -1,0 +1,197 @@
+{
+  "$id": "qbank-schema.json",
+  "title": "Med School Q-Bank import file",
+  "description": "One file per lecture day. Questions are validated individually; correct_option must match one of the option ids.",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format_version": {
+      "type": "string",
+      "pattern": "^1\\.\\d+$"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "course": {
+      "type": "string",
+      "minLength": 1
+    },
+    "week": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "day_label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "lectures": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "lecture_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lecturer": {
+            "default": "",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "type": "string"
+          },
+          "learning_objectives": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "lecture_id",
+          "title"
+        ]
+      }
+    },
+    "questions": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "qid": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lecture_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "clinical_vignette",
+              "mechanism",
+              "recall",
+              "lab_interpretation",
+              "image_based"
+            ]
+          },
+          "difficulty": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "stem": {
+            "type": "string",
+            "minLength": 1
+          },
+          "options": {
+            "minItems": 2,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Z]$"
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "id",
+                "text",
+                "explanation"
+              ]
+            }
+          },
+          "correct_option": {
+            "type": "string",
+            "pattern": "^[A-Z]$"
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "key_takeaway": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "slides": {
+                "type": [
+                  "string",
+                  "number"
+                ]
+              },
+              "objective": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "slides"
+            ]
+          },
+          "tags": {
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "image_url": {
+            "default": null,
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "qid",
+          "lecture_id",
+          "type",
+          "difficulty",
+          "stem",
+          "options",
+          "correct_option",
+          "explanation",
+          "key_takeaway",
+          "source"
+        ]
+      }
+    }
+  },
+  "required": [
+    "format_version",
+    "course",
+    "week",
+    "day_label",
+    "date",
+    "lectures",
+    "questions"
+  ]
+}

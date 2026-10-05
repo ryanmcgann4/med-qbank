@@ -1,0 +1,238 @@
+{
+  "format_version": "1.0",
+  "generated_at": "2026-10-05T18:00:00-05:00",
+  "course": "Block 2",
+  "week": 6,
+  "day_label": "Week 6 – Day 1 (Mon Oct 5)",
+  "date": "2026-10-05",
+  "lectures": [
+    {
+      "lecture_id": "B2-W6-D1-L1",
+      "title": "Renal Tubular Physiology I",
+      "lecturer": "Dr. Smith",
+      "summary": "Covers the proximal convoluted tubule as the nephron's bulk reabsorber: about two-thirds of filtered Na+ and water and essentially all filtered glucose and amino acids are reclaimed there. Reviews the apical transporters (SGLT2, NHE3, Na+-phosphate cotransport) and the basolateral Na+/K+-ATPase that powers them, bicarbonate reclamation by carbonic anhydrase, and how angiotensin II and PTH regulate proximal transport. Clinical correlates include SGLT2 inhibitors, acetazolamide, and Fanconi syndrome.",
+      "learning_objectives": [
+        "Describe Na+ handling in the PCT and the fraction of the filtered load reabsorbed there",
+        "Explain glucose reabsorption by SGLT2/SGLT1 and the concept of transport maximum",
+        "Describe bicarbonate reabsorption in the PCT and the role of carbonic anhydrase",
+        "Explain the effects of angiotensin II and PTH on PCT transport",
+        "Predict the findings of generalized proximal tubule dysfunction (Fanconi syndrome)"
+      ]
+    },
+    {
+      "lecture_id": "B2-W6-D1-L2",
+      "title": "Glomerular Filtration and Renal Clearance",
+      "lecturer": "Dr. Patel",
+      "summary": "Introduces the Starling forces that drive glomerular filtration and how afferent and efferent arteriolar tone change GFR, renal plasma flow, and filtration fraction. Defines clearance and shows how inulin (or creatinine) clearance estimates GFR and PAH clearance estimates effective renal plasma flow. Applies these concepts to drugs that alter glomerular hemodynamics, such as ACE inhibitors and NSAIDs.",
+      "learning_objectives": [
+        "Describe the Starling forces governing glomerular filtration",
+        "Predict the effects of afferent and efferent arteriolar constriction and dilation on GFR, RPF, and filtration fraction",
+        "Calculate GFR from inulin or creatinine clearance",
+        "Calculate renal plasma flow and renal blood flow from PAH clearance and hematocrit",
+        "Explain how ACE inhibitors and NSAIDs alter glomerular hemodynamics"
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "qid": "B2-W6-D1-L1-Q001",
+      "lecture_id": "B2-W6-D1-L1",
+      "type": "clinical_vignette",
+      "difficulty": 2,
+      "stem": "A 58-year-old man with type 2 diabetes mellitus and heart failure with reduced ejection fraction is started on empagliflozin. Two weeks later, his urinalysis shows 3+ glucose; his fasting plasma glucose is 132 mg/dL. Inhibition of which of the following transporters is most directly responsible for his glucosuria?",
+      "options": [
+        { "id": "A", "text": "Na+/glucose cotransporter 2 (SGLT2) in the early proximal convoluted tubule", "explanation": "Correct. SGLT2 is a high-capacity, low-affinity transporter in the S1–S2 segments that reclaims about 90% of filtered glucose. Empagliflozin blocks it, so glucose is excreted even at modest plasma levels." },
+        { "id": "B", "text": "Na+/glucose cotransporter 1 (SGLT1) in the late proximal tubule", "explanation": "SGLT1 is a high-affinity, low-capacity transporter in the S3 segment that recovers the remaining ~10% of filtered glucose; it is also the main intestinal glucose transporter. Empagliflozin is highly selective for SGLT2 over SGLT1." },
+        { "id": "C", "text": "GLUT2 on the basolateral membrane of proximal tubule cells", "explanation": "GLUT2 moves reabsorbed glucose out of the cell into the interstitium by facilitated diffusion. It is not the drug target; gliflozins act on apical Na+-coupled entry, not basolateral exit." },
+        { "id": "D", "text": "Na+-K+-2Cl− cotransporter (NKCC2) in the thick ascending limb", "explanation": "NKCC2 is the target of loop diuretics such as furosemide. It does not transport glucose." },
+        { "id": "E", "text": "Na+-Cl− cotransporter (NCC) in the distal convoluted tubule", "explanation": "NCC is the target of thiazide diuretics. It does not transport glucose, and by the DCT essentially all filtered glucose has normally already been reclaimed." }
+      ],
+      "correct_option": "A",
+      "explanation": "Filtered glucose is reabsorbed almost entirely in the proximal tubule by secondary active transport: apical Na+-glucose cotransporters use the Na+ gradient created by the basolateral Na+/K+-ATPase, and glucose leaves the cell basolaterally through GLUT transporters. SGLT2 in the early PCT does most of the work, and SGLT1 in the late PCT recovers the rest. SGLT2 inhibitors (the -gliflozins) lower the renal threshold for glucose, causing glucosuria and an osmotic diuresis that lowers plasma glucose, blood pressure, and volume; they also reduce heart failure hospitalizations and slow CKD progression. Their adverse effects follow from the mechanism: genital mycotic infections and UTIs, volume depletion, and euglycemic DKA.",
+      "key_takeaway": "SGLT2 in the early PCT reabsorbs ~90% of filtered glucose; -gliflozins block it and cause glucosuria.",
+      "source": { "slides": "8-10", "objective": "Explain glucose reabsorption by SGLT2/SGLT1 and the concept of transport maximum" },
+      "tags": ["renal", "physiology", "pharmacology", "PCT", "glucose"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L1-Q002",
+      "lecture_id": "B2-W6-D1-L1",
+      "type": "lab_interpretation",
+      "difficulty": 3,
+      "stem": "A 4-year-old boy is evaluated for poor growth and bowing of the legs. Urinalysis shows 2+ glucose, and amino acids are detected in the urine. Laboratory studies show:\n\nSerum glucose: 88 mg/dL (70–100)\nSerum phosphate: 2.1 mg/dL (4.0–6.5 for age)\nSerum bicarbonate: 16 mEq/L (22–28)\nSerum chloride: 112 mEq/L (98–107)\nSerum potassium: 3.2 mEq/L (3.5–5.0)\n\nDysfunction of which of the following nephron segments best explains these findings?",
+      "options": [
+        { "id": "A", "text": "Glomerulus", "explanation": "Glomerular disease causes proteinuria (nephrotic pattern) or hematuria with reduced GFR (nephritic pattern). It does not cause selective urinary loss of glucose, amino acids, phosphate, and bicarbonate with a normal serum glucose." },
+        { "id": "B", "text": "Proximal convoluted tubule", "explanation": "Correct. The PCT reabsorbs virtually all filtered glucose and amino acids, most filtered phosphate, and about 80% of filtered bicarbonate. Generalized PCT dysfunction (Fanconi syndrome) wastes all of them at once." },
+        { "id": "C", "text": "Thick ascending limb of the loop of Henle", "explanation": "Thick ascending limb defects (e.g., Bartter syndrome) cause salt wasting, hypokalemia, and metabolic alkalosis with hypercalciuria, not glucosuria, aminoaciduria, or acidosis." },
+        { "id": "D", "text": "Distal convoluted tubule", "explanation": "DCT defects (e.g., Gitelman syndrome) cause hypokalemia, metabolic alkalosis, hypomagnesemia, and hypocalciuria. The DCT does not handle glucose or amino acids." },
+        { "id": "E", "text": "α-Intercalated cells of the collecting duct", "explanation": "Defective H+ secretion here causes distal (type 1) RTA: a non-anion gap acidosis with an inappropriately high urine pH (>5.5) and nephrolithiasis, but no glucosuria, aminoaciduria, or phosphate wasting." }
+      ],
+      "correct_option": "B",
+      "explanation": "Glucosuria with a normal serum glucose means the problem is tubular reabsorption, not filtered load. Add aminoaciduria, phosphate wasting (hypophosphatemia leading to rickets, which explains the leg bowing), and a hyperchloremic (non-anion gap) metabolic acidosis from bicarbonate wasting, and the picture is Fanconi syndrome: generalized failure of proximal tubule reabsorption. The bicarbonate wasting is a proximal (type 2) RTA. Hypokalemia results from increased distal delivery of Na+ and fluid, which drives K+ secretion. In children, think cystinosis; in adults, think multiple myeloma light chains, drugs (ifosfamide, tenofovir, expired tetracyclines), Wilson disease, and lead poisoning.",
+      "key_takeaway": "Glucosuria + aminoaciduria + phosphaturia + non-anion gap acidosis with a normal serum glucose = Fanconi syndrome (generalized PCT failure).",
+      "source": { "slides": "22-24", "objective": "Predict the findings of generalized proximal tubule dysfunction (Fanconi syndrome)" },
+      "tags": ["renal", "physiology", "PCT", "Fanconi", "acid-base"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L1-Q003",
+      "lecture_id": "B2-W6-D1-L1",
+      "type": "recall",
+      "difficulty": 1,
+      "stem": "In a healthy adult on a normal-sodium diet, approximately what fraction of the filtered load of Na+ is reabsorbed in the proximal convoluted tubule?",
+      "options": [
+        { "id": "A", "text": "About 3%", "explanation": "This is roughly the fraction reabsorbed in the collecting duct, where aldosterone fine-tunes Na+ balance through ENaC." },
+        { "id": "B", "text": "About 5%", "explanation": "This is roughly the fraction reabsorbed in the distal convoluted tubule through NCC, the thiazide target." },
+        { "id": "C", "text": "About 25%", "explanation": "This is roughly the fraction reabsorbed in the thick ascending limb through NKCC2, the loop diuretic target." },
+        { "id": "D", "text": "About 67%", "explanation": "Correct. The PCT reabsorbs about two-thirds of filtered Na+ and water isosmotically." },
+        { "id": "E", "text": "About 99%", "explanation": "This is roughly the fraction of filtered Na+ reabsorbed by the whole nephron; normally less than 1% of the filtered load is excreted (FENa < 1%)." }
+      ],
+      "correct_option": "D",
+      "explanation": "The PCT is the nephron's bulk reabsorber: about 67% of filtered Na+ and water are reclaimed there isosmotically, so fluid leaving the PCT has the same osmolality as plasma. The thick ascending limb takes about 25%, the DCT about 5%, and the collecting duct about 3%, leaving less than 1% to be excreted. Because downstream segments compensate for reduced proximal reabsorption, diuretics acting only on the PCT (e.g., acetazolamide) are weak. The fine regulation that sets final Na+ excretion happens distally, for example by aldosterone in the collecting duct.",
+      "key_takeaway": "PCT ≈ 67% of filtered Na+ (isosmotic); TAL ≈ 25%; DCT ≈ 5%; collecting duct ≈ 3%.",
+      "source": { "slides": "4-5", "objective": "Describe Na+ handling in the PCT and the fraction of the filtered load reabsorbed there" },
+      "tags": ["renal", "physiology", "PCT", "sodium"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L1-Q004",
+      "lecture_id": "B2-W6-D1-L1",
+      "type": "mechanism",
+      "difficulty": 3,
+      "stem": "A 25-year-old woman planning a trek to 4,500 m (14,800 ft) begins taking acetazolamide the day before her ascent. Which of the following changes in her urine is most likely within hours of the first dose?",
+      "options": [
+        { "id": "A", "text": "Increased HCO3− excretion and increased urine pH", "explanation": "Correct. Inhibiting carbonic anhydrase in the PCT blocks bicarbonate reclamation, so HCO3− (with Na+ and K+) spills into the urine and urine pH rises." },
+        { "id": "B", "text": "Decreased HCO3− excretion and decreased urine pH", "explanation": "This is the opposite effect. It describes increased proximal bicarbonate reabsorption, as occurs with respiratory acidosis or volume depletion with high angiotensin II." },
+        { "id": "C", "text": "Increased NH4+ excretion", "explanation": "Ammonium excretion depends on an acidic collecting duct lumen trapping NH3 as NH4+. The alkaline urine produced by acetazolamide reduces NH4+ trapping rather than increasing it." },
+        { "id": "D", "text": "Decreased K+ excretion", "explanation": "Acetazolamide increases K+ excretion: more Na+ and fluid reach the collecting duct and drive K+ secretion, which is why it can cause hypokalemia." },
+        { "id": "E", "text": "Increased glucose excretion", "explanation": "Carbonic anhydrase is not involved in glucose transport. SGLT2 inhibitors, not acetazolamide, cause glucosuria." }
+      ],
+      "correct_option": "A",
+      "explanation": "In the PCT, filtered HCO3− combines with H+ secreted by the apical Na+/H+ exchanger to form H2CO3, which brush-border carbonic anhydrase converts to CO2 and H2O. CO2 diffuses into the cell, where intracellular carbonic anhydrase regenerates H+ and HCO3−, and the HCO3− exits basolaterally; the net effect is that filtered bicarbonate is reclaimed. Acetazolamide blocks carbonic anhydrase, so bicarbonate stays in the lumen and is excreted with Na+, producing alkaline urine and a hyperchloremic (non-anion gap) metabolic acidosis. At altitude, that mild metabolic acidosis offsets the respiratory alkalosis caused by hypoxic hyperventilation, allowing ventilation to increase further and speeding acclimatization.",
+      "key_takeaway": "Acetazolamide causes bicarbonaturia (alkaline urine) and a non-anion gap metabolic acidosis; used to speed altitude acclimatization.",
+      "source": { "slides": "15-17", "objective": "Describe bicarbonate reabsorption in the PCT and the role of carbonic anhydrase" },
+      "tags": ["renal", "pharmacology", "PCT", "acid-base", "diuretics"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L1-Q005",
+      "lecture_id": "B2-W6-D1-L1",
+      "type": "clinical_vignette",
+      "difficulty": 3,
+      "stem": "A 52-year-old woman is evaluated for recurrent kidney stones. Serum calcium is 11.4 mg/dL (8.5–10.5), serum phosphate is 2.2 mg/dL (2.5–4.5), and serum parathyroid hormone (PTH) is elevated. Which of the following best explains her low serum phosphate?",
+      "options": [
+        { "id": "A", "text": "Decreased Na+-phosphate cotransport in the proximal tubule", "explanation": "Correct. PTH causes internalization of NaPi-IIa cotransporters from the PCT brush border, reducing phosphate reabsorption and causing phosphaturia." },
+        { "id": "B", "text": "Increased Ca2+ reabsorption in the distal convoluted tubule", "explanation": "PTH does increase Ca2+ reabsorption in the DCT, but that contributes to her hypercalcemia, not her low phosphate." },
+        { "id": "C", "text": "Increased intestinal phosphate absorption mediated by calcitriol", "explanation": "PTH stimulates 1α-hydroxylase, and calcitriol increases intestinal absorption of both Ca2+ and phosphate. That would raise serum phosphate, not lower it." },
+        { "id": "D", "text": "Decreased glomerular filtration of phosphate", "explanation": "Less filtered phosphate would mean less excreted, which would raise serum phosphate. PTH lowers phosphate through a tubular effect, not a glomerular one." },
+        { "id": "E", "text": "Increased phosphate deposition in bone", "explanation": "PTH increases bone resorption (RANKL on osteoblasts activates osteoclasts), releasing both Ca2+ and phosphate from bone rather than depositing phosphate into it." }
+      ],
+      "correct_option": "A",
+      "explanation": "Primary hyperparathyroidism, usually from a parathyroid adenoma, presents with hypercalcemia, hypophosphatemia, and kidney stones. PTH reduces proximal tubule phosphate reabsorption by triggering endocytosis of the apical Na+-phosphate cotransporters (NaPi-IIa), so phosphate is wasted in the urine. At the same time, PTH increases Ca2+ reabsorption in the DCT and stimulates renal 1α-hydroxylase. The renal phosphate wasting outweighs the extra intestinal absorption, so serum phosphate falls. Stones form because the high filtered Ca2+ load overwhelms distal reabsorption, producing hypercalciuria.",
+      "key_takeaway": "PTH: ↓ phosphate reabsorption in the PCT (phosphaturia), ↑ Ca2+ reabsorption in the DCT, ↑ 1α-hydroxylase.",
+      "source": { "slides": "19-20", "objective": "Explain the effects of angiotensin II and PTH on PCT transport" },
+      "tags": ["renal", "endocrine", "PCT", "phosphate", "PTH"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L1-Q006",
+      "lecture_id": "B2-W6-D1-L1",
+      "type": "mechanism",
+      "difficulty": 3,
+      "stem": "A 30-year-old woman has had persistent vomiting for 3 days due to viral gastroenteritis. She is orthostatic, and her plasma renin and angiotensin II levels are elevated. Angiotensin II increases proximal tubular Na+ reabsorption in this patient primarily by stimulating which of the following?",
+      "options": [
+        { "id": "A", "text": "Apical Na+/H+ exchanger (NHE3)", "explanation": "Correct. Angiotensin II stimulates NHE3 on the apical membrane of PCT cells (along with the basolateral Na+/K+-ATPase), increasing reabsorption of Na+ and, because each secreted H+ reclaims a filtered HCO3−, bicarbonate as well." },
+        { "id": "B", "text": "Epithelial Na+ channel (ENaC)", "explanation": "ENaC is in collecting duct principal cells and is upregulated by aldosterone. It is not the proximal tubule's Na+ entry pathway." },
+        { "id": "C", "text": "Na+-K+-2Cl− cotransporter (NKCC2)", "explanation": "NKCC2 is in the thick ascending limb, not the proximal tubule." },
+        { "id": "D", "text": "Na+-Cl− cotransporter (NCC)", "explanation": "NCC is in the distal convoluted tubule. Angiotensin II and aldosterone can stimulate it, but it is not a proximal tubule transporter." },
+        { "id": "E", "text": "Apical H+/K+-ATPase", "explanation": "H+/K+-ATPase is found on α-intercalated cells of the collecting duct, where it secretes H+ and reabsorbs K+. It matters in hypokalemia, not in proximal Na+ reabsorption." }
+      ],
+      "correct_option": "A",
+      "explanation": "With volume depletion, renin release raises angiotensin II, which acts on AT1 receptors in the proximal tubule to stimulate apical Na+/H+ exchange (NHE3) and the basolateral Na+/K+-ATPase. More Na+ is reclaimed to restore volume, and because every H+ secreted by NHE3 reclaims a filtered HCO3−, bicarbonate reabsorption rises too. That is one reason a metabolic alkalosis after vomiting persists while the patient remains volume depleted (a saline-responsive alkalosis): the kidney keeps reclaiming HCO3− until volume is restored. Angiotensin II also constricts the efferent arteriole, raising peritubular capillary oncotic pressure, which further favors proximal reabsorption.",
+      "key_takeaway": "Angiotensin II stimulates PCT NHE3 → ↑ Na+ and HCO3− reabsorption, which helps maintain metabolic alkalosis in volume depletion.",
+      "source": { "slides": "18", "objective": "Explain the effects of angiotensin II and PTH on PCT transport" },
+      "tags": ["renal", "physiology", "PCT", "RAAS", "acid-base"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L2-Q001",
+      "lecture_id": "B2-W6-D1-L2",
+      "type": "clinical_vignette",
+      "difficulty": 3,
+      "stem": "A 68-year-old man with hypertension and peripheral artery disease is started on lisinopril. One week later, his serum creatinine has risen from 1.1 to 2.0 mg/dL. Renal artery duplex ultrasonography shows severe stenosis of both renal arteries. Which of the following best explains the decrease in his glomerular filtration rate?",
+      "options": [
+        { "id": "A", "text": "Dilation of the efferent arteriole, lowering glomerular capillary hydrostatic pressure", "explanation": "Correct. With low renal perfusion pressure, GFR depends on angiotensin II constricting the efferent arteriole. Removing angiotensin II dilates it, glomerular capillary pressure falls, and GFR drops." },
+        { "id": "B", "text": "Constriction of the afferent arteriole, lowering renal plasma flow", "explanation": "Afferent constriction does lower GFR, but that is how NSAIDs reduce GFR (by blocking vasodilatory prostaglandins), not how ACE inhibitors do." },
+        { "id": "C", "text": "Increased oncotic pressure in the glomerular capillaries", "explanation": "A higher plasma protein concentration would oppose filtration, but ACE inhibitors do not change plasma oncotic pressure." },
+        { "id": "D", "text": "Increased hydrostatic pressure in Bowman's space", "explanation": "Raised Bowman's space pressure from urinary tract obstruction reduces GFR, but nothing in this case suggests obstruction." },
+        { "id": "E", "text": "Loss of glomerular basement membrane charge selectivity", "explanation": "Loss of charge or size selectivity causes proteinuria, not an acute fall in GFR after starting a drug." }
+      ],
+      "correct_option": "A",
+      "explanation": "With bilateral renal artery stenosis (or stenosis to a solitary kidney), perfusion pressure reaching the glomerulus is low, and GFR depends on angiotensin II constricting the efferent arteriole to keep glomerular capillary hydrostatic pressure up. An ACE inhibitor removes angiotensin II, the efferent arteriole dilates, glomerular capillary pressure falls, and GFR drops, so creatinine rises. A modest creatinine rise (up to about 30%) is expected when starting an ACE inhibitor; a larger rise suggests renovascular disease. NSAIDs cause the mirror-image problem by blocking prostaglandin-mediated afferent dilation, and the combination of an NSAID, an ACE inhibitor, and a diuretic is a classic cause of acute kidney injury.",
+      "key_takeaway": "ACE inhibitors dilate the efferent arteriole → ↓ glomerular capillary pressure → ↓ GFR; dangerous in bilateral renal artery stenosis.",
+      "source": { "slides": "14-16", "objective": "Explain how ACE inhibitors and NSAIDs alter glomerular hemodynamics" },
+      "tags": ["renal", "physiology", "pharmacology", "GFR", "RAAS"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L2-Q002",
+      "lecture_id": "B2-W6-D1-L2",
+      "type": "lab_interpretation",
+      "difficulty": 2,
+      "stem": "During a research study, inulin is infused to a steady-state plasma concentration in a healthy volunteer. The following values are measured:\n\nPlasma inulin: 1.0 mg/mL\nUrine inulin: 100 mg/mL\nUrine flow rate: 1.2 mL/min\n\nWhich of the following is this person's glomerular filtration rate?",
+      "options": [
+        { "id": "A", "text": "1.2 mL/min", "explanation": "This is just the urine flow rate (V). It ignores how concentrated inulin is in the urine relative to plasma." },
+        { "id": "B", "text": "12 mL/min", "explanation": "This is off by a factor of 10. Recheck the arithmetic: (100 × 1.2) / 1.0 = 120." },
+        { "id": "C", "text": "100 mL/min", "explanation": "This is just the urine inulin concentration. Clearance requires multiplying by urine flow and dividing by the plasma concentration." },
+        { "id": "D", "text": "120 mL/min", "explanation": "Correct. C = (U × V) / P = (100 mg/mL × 1.2 mL/min) / 1.0 mg/mL = 120 mL/min, a normal adult GFR." },
+        { "id": "E", "text": "1,200 mL/min", "explanation": "This is off by a factor of 10 in the other direction: 100 × 1.2 = 120, not 1,200." }
+      ],
+      "correct_option": "D",
+      "explanation": "Clearance is the volume of plasma completely cleared of a substance per minute: C = (U × V) / P. Inulin is freely filtered and neither reabsorbed nor secreted, so everything filtered is excreted and its clearance equals GFR. Here, (100 × 1.2) / 1.0 = 120 mL/min. In practice, creatinine clearance is used to estimate GFR; because the proximal tubule secretes a small amount of creatinine, creatinine clearance slightly overestimates GFR.",
+      "key_takeaway": "C = UV/P; inulin clearance = GFR (creatinine clearance slightly overestimates GFR because of tubular secretion).",
+      "source": { "slides": "20-21", "objective": "Calculate GFR from inulin or creatinine clearance" },
+      "tags": ["renal", "physiology", "clearance", "GFR", "calculation"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L2-Q003",
+      "lecture_id": "B2-W6-D1-L2",
+      "type": "lab_interpretation",
+      "difficulty": 3,
+      "stem": "In a healthy 35-year-old woman, the clearance of para-aminohippuric acid (PAH) is 600 mL/min and her hematocrit is 40%. Which of the following is her approximate renal blood flow?",
+      "options": [
+        { "id": "A", "text": "240 mL/min", "explanation": "This is 600 × 0.40, the red cell fraction rather than whole blood. Divide by (1 − Hct) instead of multiplying by Hct." },
+        { "id": "B", "text": "360 mL/min", "explanation": "This is 600 × (1 − 0.40). Blood flow must be larger than plasma flow, so divide by the plasma fraction rather than multiplying." },
+        { "id": "C", "text": "600 mL/min", "explanation": "This is the effective renal plasma flow (RPF), not blood flow. Blood flow also includes the red cell volume." },
+        { "id": "D", "text": "840 mL/min", "explanation": "This is 600 × 1.4, which adds 40% of plasma flow instead of correctly converting plasma flow to blood flow. RBF = RPF / (1 − Hct)." },
+        { "id": "E", "text": "1,000 mL/min", "explanation": "Correct. RBF = RPF / (1 − Hct) = 600 / 0.60 = 1,000 mL/min." }
+      ],
+      "correct_option": "E",
+      "explanation": "PAH is filtered and also avidly secreted by the proximal tubule, so nearly all PAH delivered to the kidney in one pass is excreted. Its clearance therefore approximates effective renal plasma flow (it slightly underestimates true RPF). Plasma is only the non-cellular fraction of blood, so renal blood flow = RPF / (1 − hematocrit) = 600 / 0.6 = 1,000 mL/min, about 20% of cardiac output. Knowing RPF also gives the filtration fraction: FF = GFR / RPF, normally about 20% (120 / 600).",
+      "key_takeaway": "PAH clearance ≈ effective RPF; RBF = RPF / (1 − Hct); FF = GFR / RPF ≈ 20%.",
+      "source": { "slides": "22-23", "objective": "Calculate renal plasma flow and renal blood flow from PAH clearance and hematocrit" },
+      "tags": ["renal", "physiology", "clearance", "calculation"],
+      "image_url": null
+    },
+    {
+      "qid": "B2-W6-D1-L2-Q004",
+      "lecture_id": "B2-W6-D1-L2",
+      "type": "mechanism",
+      "difficulty": 4,
+      "stem": "An investigational drug selectively constricts the efferent arterioles of the glomeruli without changing systemic blood pressure. Compared with baseline, which of the following sets of changes is most likely shortly after a moderate dose?",
+      "options": [
+        { "id": "A", "text": "RPF ↓, GFR ↑, filtration fraction ↑", "explanation": "Correct. Efferent constriction raises resistance downstream of the glomerulus: plasma flow falls, but glomerular capillary hydrostatic pressure rises, so GFR rises at moderate constriction and FF (GFR/RPF) rises." },
+        { "id": "B", "text": "RPF ↓, GFR ↓, filtration fraction unchanged", "explanation": "This pattern is afferent arteriolar constriction, as with NSAIDs blocking prostaglandin-mediated afferent dilation or with intense sympathetic stimulation." },
+        { "id": "C", "text": "RPF ↑, GFR ↑, filtration fraction unchanged", "explanation": "This pattern is afferent arteriolar dilation: more flow and more pressure reach the glomerulus, raising RPF and GFR proportionally." },
+        { "id": "D", "text": "RPF ↑, GFR ↓, filtration fraction ↓", "explanation": "This pattern is efferent arteriolar dilation (e.g., an ACE inhibitor): RPF rises as resistance falls, but glomerular capillary pressure drops, so GFR and FF fall." },
+        { "id": "E", "text": "RPF unchanged, GFR ↓, filtration fraction ↓", "explanation": "This pattern fits an increased plasma protein concentration or ureteral obstruction, which oppose filtration without changing arteriolar resistance." }
+      ],
+      "correct_option": "A",
+      "explanation": "Think of the glomerular capillary as sitting between two resistors. Constricting the efferent (outflow) resistor raises hydrostatic pressure inside the glomerular capillary, increasing filtration, while total renal vascular resistance rises and plasma flow falls. Because GFR rises while RPF falls, the filtration fraction rises. The higher FF concentrates plasma proteins in the efferent blood, raising peritubular capillary oncotic pressure and favoring proximal tubular reabsorption. At very high levels of efferent constriction, RPF falls so far that GFR eventually declines too, which is why the question specifies a moderate dose.",
+      "key_takeaway": "Efferent constriction: RPF ↓, GFR ↑, FF ↑. Afferent constriction: RPF ↓, GFR ↓, FF unchanged.",
+      "source": { "slides": "10-13", "objective": "Predict the effects of afferent and efferent arteriolar constriction and dilation on GFR, RPF, and filtration fraction" },
+      "tags": ["renal", "physiology", "GFR", "hemodynamics"],
+      "image_url": null
+    }
+  ]
+}
