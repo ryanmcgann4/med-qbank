@@ -135,6 +135,8 @@ answers in a row. The home screen shows how many are due today.
   objective shows how many questions cite it, so gaps in Claude's coverage
   stand out. Full-text search covers stems, answers, explanations, tags, and
   lectures. Every question shows its answer history and next review date.
+  **Delete day** / **Delete lecture** removes those questions and their history
+  (e.g. to clear out the sample questions).
 
 ## Fixing questions
 

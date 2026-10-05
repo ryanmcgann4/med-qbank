@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { QBankDB } from '../db';
 import { sample, sampleText } from '../test/fixtures';
-import { applyImport, planImport } from './importer';
+import { applyImport, deleteLectures, planImport } from './importer';
 import { recordAttempts } from './tracking';
 
 let db: QBankDB;
@@ -86,5 +86,23 @@ describe('import', () => {
     const plan = await planImport([...src(sampleText(), 'a.json'), ...src(sampleText(), 'b.json')], db);
     expect(plan.items.filter((i) => i.kind === 'batch_duplicate')).toHaveLength(10);
     expect((await applyImport(plan, {}, db)).added).toBe(10);
+  });
+
+  it('deletes one lecture with its questions and history, leaving the rest', async () => {
+    await applyImport(await planImport(src(sampleText()), db), {}, db);
+    const keep = 'B2-W6-D1-L1-Q001';
+    const gone = 'B2-W6-D1-L2-Q001';
+    await recordAttempts(
+      [keep, gone].map((qid) => ({ qid, ts: Date.now(), chosen: 'A', correct: true, confidence: 'sure' as const, timeMs: 1, mode: 'smart' as const, sessionId: 's' })),
+      db,
+    );
+
+    expect(await deleteLectures(['B2-W6-D1-L2'], db)).toEqual({ lectures: 1, questions: 4 });
+    expect(await db.questions.count()).toBe(6);
+    expect(await db.lectures.get('B2-W6-D1-L2')).toBeUndefined();
+    expect(await db.progress.get(gone)).toBeUndefined();
+    expect(await db.attempts.where('qid').equals(gone).count()).toBe(0);
+    expect(await db.progress.get(keep)).toMatchObject({ timesSeen: 1 });
+    expect(await db.attempts.where('qid').equals(keep).count()).toBe(1);
   });
 });

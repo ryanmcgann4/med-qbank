@@ -1,13 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, ChevronRight, PlayCircle, Search } from 'lucide-react';
+import { ArrowLeft, ChevronRight, PlayCircle, Search, Trash2 } from 'lucide-react';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { QuestionRow, highlight } from '../components/QuestionRow';
-import { Badge, Button, Card, Chip, cn, inputClass, PageHeader, pct } from '../components/ui';
+import { Badge, Button, Card, Chip, cn, inputClass, Modal, PageHeader, pct } from '../components/ui';
 import { db, type StoredLecture } from '../db';
 import { useCandidates } from '../hooks/useBank';
 import { useStartQuiz } from '../hooks/useStartQuiz';
 import { formatDate } from '../lib/dates';
+import { deleteLectures } from '../lib/importer';
 import { normalizeText } from '../lib/hash';
 import { emptyFilters, type Candidate } from '../lib/selection';
 import { hasStatus } from '../lib/status';
@@ -160,8 +161,16 @@ function LibraryIndex({ cands, lectures }: { cands: Candidate[]; lectures: Store
               <div className="space-y-4">
                 {[...w.days.values()].map((d) => (
                   <div key={d.label}>
-                    <div className="mb-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-                      {d.label} <span className="text-slate-400">· {formatDate(d.date)}</span>
+                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
+                      <span className="flex-1">
+                        {d.label} <span className="text-slate-400">· {formatDate(d.date)}</span>
+                      </span>
+                      <DeleteLectures
+                        name={d.label}
+                        lectures={d.lectures}
+                        questions={d.lectures.reduce((n, l) => n + (byLecture.get(l.lecture_id)?.length ?? 0), 0)}
+                        label="Delete day"
+                      />
                     </div>
                     <div className="space-y-2">
                       {d.lectures.map((l) => (
@@ -205,6 +214,7 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
   const l = lectures.find((x) => x.lecture_id === lectureId);
   const mine = cands.filter((c) => c.q.lecture_id === lectureId).sort((a, b) => a.q.qid.localeCompare(b.q.qid));
   const { start, busy, message } = useStartQuiz();
+  const navigate = useNavigate();
   const now = Date.now();
 
   if (!l) {
@@ -285,6 +295,9 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
         >
           All {mine.length}
         </Button>
+        <span className="ml-auto">
+          <DeleteLectures name={l.title} lectures={[l]} questions={mine.length} label="Delete lecture" onDone={() => navigate('/library')} />
+        </span>
       </div>
       {message && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{message}</p>}
 
@@ -295,5 +308,63 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
         ))}
       </div>
     </div>
+  );
+}
+
+/** Delete one or more lectures with their questions and history, after confirming. */
+function DeleteLectures({
+  name,
+  lectures,
+  questions,
+  label,
+  onDone,
+}: {
+  name: string;
+  lectures: StoredLecture[];
+  questions: number;
+  label: string;
+  onDone?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    await deleteLectures(lectures.map((l) => l.lecture_id));
+    setBusy(false);
+    setOpen(false);
+    onDone?.();
+  }
+
+  return (
+    <>
+      <Button size="sm" variant="ghost" className="text-slate-500 hover:text-rose-600 dark:hover:text-rose-400" onClick={() => setOpen(true)}>
+        <Trash2 className="h-4 w-4" /> {label}
+      </Button>
+      <Modal open={open} onClose={() => setOpen(false)} title={`Delete ${name}?`}>
+        <p className="text-sm text-slate-700 dark:text-slate-300">
+          This removes {lectures.length === 1 ? 'this lecture' : `${lectures.length} lectures`} and {questions} question{questions === 1 ? '' : 's'}, along with
+          your answer history, notes, and flags for them. It can't be undone.
+        </p>
+        {lectures.length > 1 && (
+          <ul className="mt-2 list-disc pl-5 text-sm text-slate-600 dark:text-slate-400">
+            {lectures.map((l) => (
+              <li key={l.lecture_id}>{l.title}</li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-sm text-slate-500">
+          Want a copy first? Use <Link to="/data" className="underline">Data → Download backup</Link>.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={confirm} disabled={busy}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        </div>
+      </Modal>
+    </>
   );
 }

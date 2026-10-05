@@ -143,3 +143,19 @@ export async function applyImport(
 
   return { ...outcome, importId: importId as number };
 }
+
+/**
+ * Remove lectures with their questions and the progress/answer history for
+ * those questions. Past quiz sessions keep their records; removed questions
+ * show as "removed from bank" there.
+ */
+export async function deleteLectures(lectureIds: readonly string[], database: QBankDB = defaultDb): Promise<{ lectures: number; questions: number }> {
+  return database.transaction('rw', [database.questions, database.lectures, database.progress, database.attempts], async () => {
+    const qids = (await database.questions.where('lecture_id').anyOf([...lectureIds]).primaryKeys()) as string[];
+    await database.attempts.where('qid').anyOf(qids).delete();
+    await database.progress.bulkDelete(qids);
+    await database.questions.bulkDelete(qids);
+    await database.lectures.bulkDelete([...lectureIds]);
+    return { lectures: lectureIds.length, questions: qids.length };
+  });
+}
