@@ -144,14 +144,6 @@ export function QuizPage() {
   const revealed = !!s && !s.timed && !!answer?.submitted;
   const isLast = !!s && i === s.items.length - 1;
 
-  const select = useCallback(
-    (optId: string) => {
-      if (!s || !answer || revealed) return;
-      patchAnswer(i, { chosen: optId, struck: answer.struck.filter((x) => x !== optId) });
-    },
-    [s, answer, revealed, i, patchAnswer],
-  );
-
   const toggleStrike = useCallback(
     (optId: string) => {
       if (!answer || revealed) return;
@@ -181,6 +173,21 @@ export function QuizPage() {
       ]);
     },
     [s, answer, q, item, i, patchAnswer],
+  );
+
+  // Choosing the already-selected answer again (second tap, double-click, or the same key)
+  // locks it in as Sure. In exam mode nothing is final until the end, so it just marks Sure.
+  const select = useCallback(
+    (optId: string) => {
+      if (!s || !answer || revealed) return;
+      if (answer.chosen === optId) {
+        if (s.timed) patchAnswer(i, { confidence: 'sure' });
+        else confide('sure');
+        return;
+      }
+      patchAnswer(i, { chosen: optId, struck: answer.struck.filter((x) => x !== optId) });
+    },
+    [s, answer, revealed, i, patchAnswer, confide],
   );
 
   const goto = useCallback((j: number) => setSession((x) => (x ? { ...x, current: Math.max(0, Math.min(x.items.length - 1, j)) } : x)), []);
@@ -338,7 +345,7 @@ export function QuizPage() {
           interactive={!revealed}
           onSelect={select}
           onToggleStrike={toggleStrike}
-          footer={<QuestionTools question={q} tools={['edit', 'report']} />}
+          footer={<QuestionTools question={q} tools={['edit', 'report', 'archive']} />}
           scrollOnReveal
         />
       ) : (
@@ -349,7 +356,8 @@ export function QuizPage() {
 
       {!revealed && (
         <p className="mt-3 hidden text-xs text-slate-500 sm:block">
-          Right-click an answer to cross it out. <Kbd>1</Kbd>–<Kbd>5</Kbd> or <Kbd>A</Kbd>–<Kbd>E</Kbd> to select · <Kbd>?</Kbd> for all shortcuts
+          Click your answer again (or double-click) to lock it in as Sure. Right-click to cross one out. <Kbd>1</Kbd>–<Kbd>5</Kbd> /{' '}
+          <Kbd>A</Kbd>–<Kbd>E</Kbd> select · <Kbd>?</Kbd> all shortcuts
         </p>
       )}
 
@@ -390,7 +398,13 @@ export function QuizPage() {
                 </Button>
               )}
               <span className={cn('flex-1 text-sm transition-colors', nudge ? 'font-semibold text-rose-600' : 'text-slate-600 dark:text-slate-400')}>
-                {answer.chosen ? 'How sure are you?' : 'Select an answer'}
+                {answer.chosen ? (
+                  <>
+                    How sure are you? <span className="text-xs text-slate-500 sm:hidden">(or tap it again for Sure)</span>
+                  </>
+                ) : (
+                  'Select an answer'
+                )}
               </span>
               {answer.chosen && (
                 <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
@@ -467,6 +481,7 @@ export function QuizPage() {
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="Keyboard shortcuts">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           <dt><Kbd>1</Kbd>–<Kbd>5</Kbd> / <Kbd>A</Kbd>–<Kbd>E</Kbd></dt><dd>Select an answer</dd>
+          <dt>Same key / click again</dt><dd>Lock in the selected answer as Sure</dd>
           <dt><Kbd>S</Kbd> <Kbd>U</Kbd> <Kbd>G</Kbd></dt><dd>Sure / Unsure / Guess {s.timed ? '(optional in exam mode)' : '— submits your answer'}</dd>
           <dt><Kbd>Enter</Kbd> / <Kbd>→</Kbd></dt><dd>Next question</dd>
           <dt><Kbd>←</Kbd></dt><dd>Previous question</dd>

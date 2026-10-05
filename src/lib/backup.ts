@@ -105,15 +105,21 @@ export function parseBackup(text: string): { data?: BackupFile; error?: string }
 
 const attemptKey = (a: Attempt) => `${a.qid}|${a.ts}|${a.sessionId}|${a.chosen}`;
 
-type Meta = Pick<Progress, 'flagged' | 'note' | 'report' | 'metaUpdatedAt'>;
-const metaOf = (p: Progress): Meta => ({ flagged: p.flagged, note: p.note, report: p.report, metaUpdatedAt: p.metaUpdatedAt });
+type Meta = Pick<Progress, 'flagged' | 'note' | 'report' | 'archived' | 'metaUpdatedAt'>;
+const metaOf = (p: Progress): Meta => ({ flagged: p.flagged, note: p.note, report: p.report, archived: p.archived, metaUpdatedAt: p.metaUpdatedAt });
 
 /** Newest flag/note/report wins. Without timestamps (old backups), keep whatever is set. */
 function mergeMeta(a: Meta, b: Meta): Meta {
   const ta = a.metaUpdatedAt ?? 0;
   const tb = b.metaUpdatedAt ?? 0;
   if (ta !== tb) return ta > tb ? a : b;
-  return { flagged: a.flagged || b.flagged, note: a.note || b.note, report: a.report ?? b.report, metaUpdatedAt: ta || undefined };
+  return {
+    flagged: a.flagged || b.flagged,
+    note: a.note || b.note,
+    report: a.report ?? b.report,
+    archived: a.archived || b.archived || undefined,
+    metaUpdatedAt: ta || undefined,
+  };
 }
 
 /**

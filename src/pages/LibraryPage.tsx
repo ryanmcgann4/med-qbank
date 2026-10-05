@@ -13,7 +13,7 @@ import { normalizeText } from '../lib/hash';
 import { emptyFilters, type Candidate } from '../lib/selection';
 import { hasStatus } from '../lib/status';
 
-type Filter = 'all' | 'flagged' | 'reported' | 'edited' | 'missed' | 'unseen';
+type Filter = 'all' | 'flagged' | 'reported' | 'edited' | 'missed' | 'unseen' | 'archived';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['missed', 'Missed'],
@@ -21,9 +21,13 @@ const FILTERS: [Filter, string][] = [
   ['reported', 'Reported'],
   ['edited', 'Edited'],
   ['unseen', 'Unseen'],
+  ['archived', 'Archived'],
 ];
 
+/** Archived questions only appear under the Archived filter (and on their lecture's page). */
 function matchesFilter(c: Candidate, f: Filter, now: number): boolean {
+  if (f === 'archived') return !!c.progress?.archived;
+  if (c.progress?.archived) return false;
   switch (f) {
     case 'all':
       return true;
@@ -41,16 +45,17 @@ function haystack(c: Candidate): string {
     .toLowerCase();
 }
 
-function lectureStats(cands: Candidate[]) {
+function lectureStats(all: Candidate[]) {
+  const cands = all.filter((c) => !c.progress?.archived);
   const seen = cands.filter((c) => c.progress?.timesSeen).length;
   const attempts = cands.reduce((n, c) => n + (c.progress?.timesSeen ?? 0), 0);
   const correct = cands.reduce((n, c) => n + (c.progress?.timesCorrect ?? 0), 0);
-  return { total: cands.length, seen, accuracy: attempts ? correct / attempts : null };
+  return { total: cands.length, seen, accuracy: attempts ? correct / attempts : null, archived: all.length - cands.length };
 }
 
 export function LibraryPage() {
   const { lectureId } = useParams();
-  const cands = useCandidates();
+  const cands = useCandidates({ includeArchived: true });
   const lectures = useLiveQuery(() => db.lectures.toArray(), []);
   if (!cands || !lectures) return null;
   if (lectureId) return <LectureDetail lectureId={lectureId} cands={cands} lectures={lectures} />;
@@ -199,6 +204,7 @@ function LectureCard({ l, cands, terms = [] }: { l: StoredLecture; cands: Candid
           <div className="text-sm text-slate-500">
             {l.lecturer && `${l.lecturer} · `}
             {s.total} questions · {s.seen} seen · {pct(s.accuracy)} accuracy
+            {s.archived > 0 && ` · ${s.archived} archived`}
           </div>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" aria-hidden>
             <div className="h-full rounded-full bg-indigo-500" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
@@ -212,7 +218,11 @@ function LectureCard({ l, cands, terms = [] }: { l: StoredLecture; cands: Candid
 
 function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cands: Candidate[]; lectures: StoredLecture[] }) {
   const l = lectures.find((x) => x.lecture_id === lectureId);
-  const mine = cands.filter((c) => c.q.lecture_id === lectureId).sort((a, b) => a.q.qid.localeCompare(b.q.qid));
+  // Archived questions are listed last; everything else on this page counts only active ones.
+  const mine = cands
+    .filter((c) => c.q.lecture_id === lectureId)
+    .sort((a, b) => Number(!!a.progress?.archived) - Number(!!b.progress?.archived) || a.q.qid.localeCompare(b.q.qid));
+  const active = mine.filter((c) => !c.progress?.archived);
   const { start, busy, message } = useStartQuiz();
   const navigate = useNavigate();
   const now = Date.now();
@@ -229,7 +239,7 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
   }
 
   const s = lectureStats(mine);
-  const unseen = mine.filter((c) => hasStatus(c.progress, 'unseen', now)).length;
+  const unseen = active.filter((c) => hasStatus(c.progress, 'unseen', now)).length;
   const filters = { ...emptyFilters(), lectures: [lectureId] };
   const objectiveCount = (o: string) => {
     const n = normalizeText(o);
@@ -272,7 +282,9 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
           </>
         )}
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
-          <span>{s.total} questions</span>
+          <span>
+            {s.total} questions{s.archived > 0 && ` (+${s.archived} archived)`}
+          </span>
           <span>
             {s.seen} seen · {unseen} unseen
           </span>
@@ -282,7 +294,7 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
       </Card>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button disabled={busy || !mine.length} onClick={() => start({ mode: 'smart', count: 20, filters }, `${l.title}`)}>
+        <Button disabled={busy || !active.length} onClick={() => start({ mode: 'smart', count: 20, filters }, `${l.title}`)}>
           <PlayCircle className="h-4 w-4" /> Quiz this lecture
         </Button>
         <Button variant="secondary" disabled={busy || !unseen} onClick={() => start({ mode: 'unseen', count: 50, filters }, `${l.title} · unseen`)}>
@@ -290,10 +302,10 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
         </Button>
         <Button
           variant="secondary"
-          disabled={busy || !mine.length}
-          onClick={() => start({ mode: 'custom', qids: mine.map((c) => c.q.qid), count: mine.length, includeRecentCorrect: true }, `${l.title} · all`)}
+          disabled={busy || !active.length}
+          onClick={() => start({ mode: 'custom', qids: active.map((c) => c.q.qid), count: active.length, includeRecentCorrect: true }, `${l.title} · all`)}
         >
-          All {mine.length}
+          All {active.length}
         </Button>
         <span className="ml-auto">
           <DeleteLectures name={l.title} lectures={[l]} questions={mine.length} label="Delete lecture" onDone={() => navigate('/library')} />

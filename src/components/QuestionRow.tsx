@@ -40,6 +40,7 @@ export function StatusBadges({ q, p, now = Date.now() }: { q: StoredQuestion; p?
       {p?.flagged && <Badge tone="amber">Flagged</Badge>}
       {p?.report && <Badge tone="red">Reported</Badge>}
       {q.editedAt && <Badge tone="sky">Edited</Badge>}
+      {p?.archived && <Badge>Archived</Badge>}
     </>
   );
 }

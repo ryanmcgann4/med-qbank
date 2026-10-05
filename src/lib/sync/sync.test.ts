@@ -4,7 +4,7 @@ import { QBankDB } from '../../db';
 import { sampleText } from '../../test/fixtures';
 import { readAll } from '../backup';
 import { applyImport, deleteLectures, planImport } from '../importer';
-import { recordAttempts, updateProgress } from '../tracking';
+import { loadCandidates, recordAttempts, updateProgress } from '../tracking';
 import { syncOnce } from './engine';
 import type { Head, RepoClient, TreeChange } from './github';
 import { fromShards, gitBlobSha, stableStringify, toShards } from './shards';
@@ -230,4 +230,24 @@ describe('two devices syncing through one repo', () => {
     expect(await phone.questions.count()).toBe(10);
     expect(repo.files()).toEqual(before);
   });
+
+  it('archiving hides a question from quizzes on every device, and unarchiving brings it back', async () => {
+    await applyImport(await planImport([{ name: 's', text: sampleText() }], laptop), {}, laptop);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+
+    await updateProgress(Q1, { archived: true }, phone);
+    expect((await loadCandidates(phone)).map((c) => c.q.qid)).not.toContain(Q1);
+    expect((await loadCandidates(phone, { includeArchived: true })).map((c) => c.q.qid)).toContain(Q1);
+    await syncOnce(repo, phone);
+    await syncOnce(repo, laptop);
+    expect(await laptop.progress.get(Q1)).toMatchObject({ archived: true });
+    expect(await loadCandidates(laptop)).toHaveLength(9);
+
+    await laptop.progress.update(Q1, { archived: false, metaUpdatedAt: Date.now() + 5000 });
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+    expect(await loadCandidates(phone)).toHaveLength(10);
+  });
 });
+

@@ -35,12 +35,13 @@ export async function recordAttempts(attempts: Omit<Attempt, 'id'>[], database: 
 export async function updateProgress(qid: string, patch: Partial<Omit<Progress, 'qid'>>, database: QBankDB = defaultDb): Promise<void> {
   await database.transaction('rw', database.progress, async () => {
     const prev = (await database.progress.get(qid)) ?? emptyProgress(qid);
-    const meta = 'flagged' in patch || 'note' in patch || 'report' in patch;
+    const meta = 'flagged' in patch || 'note' in patch || 'report' in patch || 'archived' in patch;
     await database.progress.put({ ...prev, ...patch, qid, ...(meta ? { metaUpdatedAt: Date.now() } : {}) });
   });
 }
 
-export async function loadCandidates(database: QBankDB = defaultDb): Promise<Candidate[]> {
+/** Archived questions are left out unless asked for (only the Library shows them). */
+export async function loadCandidates(database: QBankDB = defaultDb, { includeArchived = false } = {}): Promise<Candidate[]> {
   const [questions, lectures, progress] = await Promise.all([
     database.questions.toArray(),
     database.lectures.toArray(),
@@ -48,7 +49,9 @@ export async function loadCandidates(database: QBankDB = defaultDb): Promise<Can
   ]);
   const lec = new Map(lectures.map((l) => [l.lecture_id, l]));
   const prog = new Map(progress.map((p) => [p.qid, p]));
-  return questions.map((q) => ({ q, lecture: lec.get(q.lecture_id), progress: prog.get(q.qid) }));
+  return questions
+    .map((q) => ({ q, lecture: lec.get(q.lecture_id), progress: prog.get(q.qid) }))
+    .filter((c) => includeArchived || !c.progress?.archived);
 }
 
 export async function createQuiz(config: QuizConfig, title?: string, database: QBankDB = defaultDb): Promise<QuizSession | null> {

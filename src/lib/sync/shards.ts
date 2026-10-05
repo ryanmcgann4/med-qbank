@@ -50,8 +50,8 @@ export function toShards(data: BackupData): Map<string, string> {
     'progress-meta.json',
     stableStringify(
       data.progress
-        .filter((p) => p.flagged || p.note || p.report || p.metaUpdatedAt)
-        .map((p) => ({ qid: p.qid, flagged: p.flagged, note: p.note, report: p.report, metaUpdatedAt: p.metaUpdatedAt }))
+        .filter((p) => p.flagged || p.note || p.report || p.archived || p.metaUpdatedAt)
+        .map((p) => ({ qid: p.qid, flagged: p.flagged, note: p.note, report: p.report, archived: p.archived, metaUpdatedAt: p.metaUpdatedAt }))
         .sort(by((p) => p.qid)),
     ),
   );

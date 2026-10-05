@@ -46,7 +46,9 @@ export interface Progress {
   /** "Possibly incorrect" report, so you can check it against the lecture. */
   report: { reason: string; at: number } | null;
   srs: SrsState | null;
-  /** When flag/note/report last changed; newest wins when devices sync. */
+  /** Hidden from quizzes, plans and stats; still browsable in the Library. */
+  archived?: boolean;
+  /** When flag/note/report/archive last changed; newest wins when devices sync. */
   metaUpdatedAt?: number;
 }
 

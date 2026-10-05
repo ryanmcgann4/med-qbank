@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertOctagon, Flag, NotebookPen, Pencil, Undo2 } from 'lucide-react';
+import { AlertOctagon, Archive, ArchiveRestore, Flag, NotebookPen, Pencil, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import { db, type StoredQuestion } from '../db';
 import { applyEdit, EditError, revertEdit } from '../lib/edit';
@@ -8,10 +8,10 @@ import { QUESTION_TYPE_LABELS, QUESTION_TYPES, type Question } from '../schema';
 import { formatDate } from '../lib/dates';
 import { Button, Chip, cn, Field, inputClass, Modal } from './ui';
 
-type Tool = 'flag' | 'note' | 'edit' | 'report';
+type Tool = 'flag' | 'note' | 'edit' | 'report' | 'archive';
 
 /** Flag / note / edit / report controls for one question. Progress is read live. */
-export function QuestionTools({ question, tools = ['flag', 'note', 'edit', 'report'] }: { question: StoredQuestion; tools?: Tool[] }) {
+export function QuestionTools({ question, tools = ['flag', 'note', 'edit', 'report', 'archive'] }: { question: StoredQuestion; tools?: Tool[] }) {
   const p = useLiveQuery(() => db.progress.get(question.qid), [question.qid]);
   const [open, setOpen] = useState<null | 'note' | 'edit' | 'report'>(null);
 
@@ -19,6 +19,17 @@ export function QuestionTools({ question, tools = ['flag', 'note', 'edit', 'repo
 
   return (
     <div className="space-y-2">
+      {p?.archived && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800/50">
+          <Archive className="h-4 w-4 shrink-0 text-slate-500" />
+          <span className="flex-1">
+            <span className="font-semibold">Archived.</span> Hidden from quizzes, exam plans, due counts, and stats.
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => updateProgress(question.qid, { archived: false })}>
+            <ArchiveRestore className="h-4 w-4" /> Unarchive
+          </Button>
+        </div>
+      )}
       {p?.report && (
         <div className="flex flex-wrap items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm dark:border-amber-800 dark:bg-amber-950/40">
           <AlertOctagon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
@@ -59,6 +70,16 @@ export function QuestionTools({ question, tools = ['flag', 'note', 'edit', 'repo
         {tools.includes('report') && !p?.report && (
           <button type="button" className={btn} onClick={() => setOpen('report')}>
             <AlertOctagon className="h-4 w-4" /> Possibly incorrect?
+          </button>
+        )}
+        {tools.includes('archive') && !p?.archived && (
+          <button
+            type="button"
+            className={btn}
+            title="Hide from quizzes, exam plans, and stats. You can unarchive it from the Library."
+            onClick={() => updateProgress(question.qid, { archived: true })}
+          >
+            <Archive className="h-4 w-4" /> Archive
           </button>
         )}
       </div>

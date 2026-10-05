@@ -102,7 +102,8 @@ right in the last *N* days (default 3) are skipped unless they're due.
 
 **Keyboard:** `1`–`5` / `A`–`E` select · `S` / `U` / `G` = Sure / Unsure / Guess
 (submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `?` help.
-Right-click or long-press an answer to cross it out.
+Tap, click, or press the key for the answer you already selected (or double-click it)
+to lock it in as **Sure**. Right-click or long-press an answer to cross it out.
 
 After a quiz: score, time, confidence check, every question re-openable, and
 one-click **Re-quiz my misses**. Ending a tutor quiz early scores only what you
@@ -156,7 +157,11 @@ answers in a row. The home screen shows how many are due today.
   **Delete day** / **Delete lecture** removes those questions and their history
   (e.g. to clear out the sample questions).
 
-## Fixing questions
+## Fixing and archiving questions
+
+- **Archive** a question you don't want to see anymore. It leaves quizzes, exam
+  plans, due counts, and stats, but stays in the Library under **Archived**,
+  where **Unarchive** brings it back. Archiving syncs between devices.
 
 - **Edit** any question in-app (from a quiz, the review screen, or the Library).
   It gets an **Edited** marker, your history is kept, and **Revert to imported
