@@ -10,6 +10,7 @@ import { hasStatus } from '../lib/status';
 import { createQuiz } from '../lib/tracking';
 import { useCandidates } from '../hooks/useBank';
 import { sessionScore } from './QuizReviewPage';
+import { ExamCards } from '../components/ExamCard';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -79,6 +80,8 @@ export function HomePage() {
           <Button onClick={() => navigate(`/quiz/${unfinished.id}`)}>Resume</Button>
         </Card>
       )}
+
+      <ExamCards cands={cands} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Due today" value={due} tone="indigo" sub={due ? 'spaced-repetition reviews' : 'nothing due — nice'} />

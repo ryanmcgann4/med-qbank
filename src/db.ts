@@ -50,11 +50,23 @@ export interface Progress {
   metaUpdatedAt?: number;
 }
 
+/** An upcoming exam; drives the countdown and daily plan on the home screen. */
+export interface Exam {
+  id: string;
+  name: string;
+  /** YYYY-MM-DD */
+  date: string;
+  course: string;
+  /** `${course}::${week}` keys; empty = the whole course. */
+  weeks: string[];
+  updatedAt: number;
+}
+
 /** Tombstone so a delete on one device propagates instead of being re-added by sync. */
 export interface Deletion {
   /** `lecture:<lecture_id>` or `question:<qid>` */
   id: string;
-  kind: 'lecture' | 'question';
+  kind: 'lecture' | 'question' | 'exam';
   key: string;
   at: number;
 }
@@ -161,6 +173,7 @@ export class QBankDB extends Dexie {
   imports!: EntityTable<ImportRecord, 'id'>;
   kv!: EntityTable<KV, 'key'>;
   deletions!: EntityTable<Deletion, 'id'>;
+  exams!: EntityTable<Exam, 'id'>;
 
   constructor(name = 'med-qbank') {
     super(name);
@@ -174,6 +187,7 @@ export class QBankDB extends Dexie {
       kv: 'key',
     });
     this.version(2).stores({ deletions: 'id, at' });
+    this.version(3).stores({ exams: 'id, date' });
   }
 }
 

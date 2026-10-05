@@ -117,6 +117,7 @@ describe('shards', () => {
     expect([...files.keys()].sort()).toEqual([
       `attempts/2026-10-05.json`,
       'deletions.json',
+      'exams.json',
       'imports.json',
       'lectures.json',
       'progress-meta.json',

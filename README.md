@@ -108,6 +108,24 @@ After a quiz: score, time, confidence check, every question re-openable, and
 one-click **Re-quiz my misses**. Ending a tutor quiz early scores only what you
 answered and offers **Finish the N unanswered**.
 
+## Exam countdown
+
+On Home, **Exam coming up?** adds an exam (name, date, course, and the weeks
+it covers; "All weeks" includes lectures you import later). The card shows the
+days left and today's plan: new questions spread evenly so your first pass
+finishes a day or two early (the last days are held back for review), plus
+whatever is due. **Start today's plan** runs exactly that set. Targets are
+fixed at the start of the day, so they don't shrink as you work. Exams sync
+between devices.
+
+## Ask Claude
+
+Every answered question has **Ask Claude about this**. Pick a quick question
+(why was I wrong, explain from scratch, two similar questions, a mnemonic…) or
+write your own. It opens Claude with the question, the options as you saw
+them, your answer, and the explanation already filled in. The prompt is also
+copied, so if Claude opens with an empty box, paste.
+
 ## Spaced repetition
 
 Leitner boxes (`src/lib/srs.ts`):

@@ -3,6 +3,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import type { Confidence, SessionAnswer, StoredLecture, StoredQuestion } from '../db';
 import { letter } from '../lib/selection';
 import { QUESTION_TYPE_LABELS } from '../schema';
+import { AskClaude } from './AskClaude';
 import { Badge, cn } from './ui';
 
 export const CONFIDENCE_LABEL: Record<Confidence, string> = { sure: 'Sure', unsure: 'Unsure', guess: 'Guess' };
@@ -133,6 +134,9 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
             ))}
             {q.editedAt && <Badge tone="amber">edited</Badge>}
             <code className="ml-auto text-xs text-slate-400">{q.qid}</code>
+          </div>
+          <div>
+            <AskClaude question={q} lecture={lecture} order={order} answer={browse ? null : answer} />
           </div>
           {footer}
         </div>
