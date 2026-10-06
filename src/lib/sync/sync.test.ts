@@ -118,6 +118,7 @@ describe('shards', () => {
       `attempts/2026-10-05.json`,
       'deletions.json',
       'exams.json',
+      'folders.json',
       'imports.json',
       'lectures.json',
       'progress-meta.json',

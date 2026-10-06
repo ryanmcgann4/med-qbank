@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, ClipboardCopy, ClipboardPaste, Download, PartyPopper, Upload } from 'lucide-react';
+import { Check, ClipboardCopy, ClipboardPaste, Download, ListChecks, PartyPopper, Sparkles, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Badge, Button, Card, cn, Field, inputClass, PageHeader, SectionTitle } from '../components/ui';
@@ -102,6 +102,8 @@ export function AddQuestionsPage() {
           </Button>
         }
       />
+
+      <SkillCard />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <PromptBuilder />
@@ -301,19 +303,19 @@ function PromptBuilder() {
     .join('\n');
   const prompt = buildGeneratorPrompt({ ...form, existing });
 
+  const [copiedList, setCopiedList] = useState(false);
+
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(prompt);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = prompt;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-    }
+    await copyText(prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  // For the Claude skill: just the "don't duplicate these" list, to paste into the chat.
+  async function copyList() {
+    await copyText(`Questions already in my Q-Bank. Don't reuse these qids or test the same fact the same way:\n${existing}`);
+    setCopiedList(true);
+    setTimeout(() => setCopiedList(false), 2000);
   }
 
   return (
@@ -379,6 +381,12 @@ function PromptBuilder() {
         <Button variant="ghost" onClick={() => setShowPrompt((s) => !s)}>
           {showPrompt ? 'Hide' : 'Preview'}
         </Button>
+        {existing && (
+          <Button variant="ghost" onClick={copyList} title="Paste this into a chat that uses the Q-Bank skill">
+            {copiedList ? <Check className="h-4 w-4" /> : <ListChecks className="h-4 w-4" />}
+            {copiedList ? 'Copied' : 'Copy existing list only'}
+          </Button>
+        )}
         <Badge tone="neutral" className="ml-auto">
           <Download className="h-3 w-3" /> {fileNameFor(form)}
         </Badge>
@@ -388,6 +396,57 @@ function PromptBuilder() {
           {prompt}
         </pre>
       )}
+    </Card>
+  );
+}
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+}
+
+/** The faster path: a Claude skill that knows the format and checks its own output. */
+function SkillCard() {
+  return (
+    <Card className="mb-6 border-indigo-200 p-5 dark:border-indigo-900">
+      <div className="flex flex-wrap items-start gap-4">
+        <Sparkles className="mt-0.5 h-6 w-6 shrink-0 text-indigo-600" />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold">Q-Bank skill for Claude</h2>
+          <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
+            Set up once and skip the prompt. Claude knows the format, checks its own file before handing it over, and names it for you.
+          </p>
+          <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-slate-700 dark:text-slate-300">
+            <li>Download the skill (below).</li>
+            <li>
+              In claude.ai: <b>Settings → Capabilities</b>. Make sure <b>Code execution and file creation</b> is on, then under <b>Skills</b> choose{' '}
+              <b>Upload skill</b> and pick the zip.
+            </li>
+            <li>
+              In a new chat, attach the day's slides and say something like <b>“Q-Bank: Block 2 (B2) Week 6 Day 2”</b>. Import the file it gives you
+              below.
+            </li>
+          </ol>
+          <p className="mt-2 text-xs text-slate-500">
+            To avoid repeats, use <b>Copy existing list only</b> (under step 1) and paste it into the same chat.
+          </p>
+        </div>
+        <a
+          href={`${import.meta.env.BASE_URL}qbank-skill.zip`}
+          download="qbank-skill.zip"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"
+        >
+          <Download className="h-4 w-4" /> Download skill
+        </a>
+      </div>
     </Card>
   );
 }

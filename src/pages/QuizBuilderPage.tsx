@@ -1,10 +1,12 @@
-import { CalendarRange, Search, Shuffle, Sparkles, Target, Timer, RotateCcw } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { CalendarRange, Folder as FolderIcon, Search, Shuffle, Sparkles, Target, Timer, RotateCcw } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button, Card, Chip, cn, Field, inputClass, PageHeader, SectionTitle } from '../components/ui';
-import { STATUS_KEYS, type QuizConfig, type QuizFilters, type QuizMode, type StatusKey } from '../db';
+import { db, STATUS_KEYS, type Folder, type QuizConfig, type QuizFilters, type QuizMode, type StatusKey } from '../db';
 import { useCandidates } from '../hooks/useBank';
 import { formatDuration } from '../lib/dates';
+import { autoNames, buildTree, lecturesUnder } from '../lib/org';
 import { dayKey, defaultConfig, eligiblePool, matchesFilters, MODE_LABELS, weekKey } from '../lib/selection';
 import { hasStatus, STATUS_LABELS } from '../lib/status';
 import { createQuiz } from '../lib/tracking';
@@ -44,6 +46,17 @@ export function QuizBuilderPage() {
   const [lectureSearch, setLectureSearch] = useState('');
   const [tagSearch, setTagSearch] = useState('');
   const [starting, setStarting] = useState(false);
+  const folders = useLiveQuery(() => db.folders.toArray(), []);
+  const allLectures = useLiveQuery(() => db.lectures.toArray(), []);
+  const tree = useMemo(() => (folders && allLectures ? buildTree(folders, allLectures) : null), [folders, allLectures]);
+  const names = useMemo(() => autoNames(folders ?? []), [folders]);
+  // Folder picks become a lecture filter (OR'd with any lectures picked directly).
+  const [folderSel, setFolderSel] = useState<string[]>([]);
+  const effective = useMemo(() => {
+    if (!folderSel.length || !tree) return config;
+    const ids = new Set([...config.filters.lectures, ...folderSel.flatMap((id) => lecturesUnder(tree, id).map((l) => l.lecture_id))]);
+    return { ...config, filters: { ...config.filters, lectures: ids.size ? [...ids] : ['(empty folder)'] } };
+  }, [config, folderSel, tree]);
 
   const f = config.filters;
   const setFilters = (patch: Partial<QuizFilters>) => setConfig((c) => ({ ...c, filters: { ...c.filters, ...patch } }));
@@ -59,8 +72,8 @@ export function QuizBuilderPage() {
     const now = Date.now();
     const courses = new Map<string, number>();
     const weeks = new Map<string, { label: string; n: number; course: string; week: number }>();
-    const days = new Map<string, { label: string; n: number; date: string }>();
-    const lectures = new Map<string, { title: string; n: number; dayK: string; dayLabel: string; date: string }>();
+    const days = new Map<string, { label: string; n: number; date: string; course: string }>();
+    const lectures = new Map<string, { title: string; n: number; dayK: string; dayLabel: string; date: string; course: string }>();
     const tags = new Map<string, number>();
     const types = new Map<QuestionType, number>();
     const diffs = new Map<number, number>();
@@ -69,14 +82,14 @@ export function QuizBuilderPage() {
       if (l) {
         courses.set(l.course, (courses.get(l.course) ?? 0) + 1);
         const wk = weekKey(l.course, l.week);
-        const w = weeks.get(wk) ?? { label: `${l.course} · Week ${l.week}`, n: 0, course: l.course, week: l.week };
+        const w = weeks.get(wk) ?? { label: '', n: 0, course: l.course, week: l.week };
         w.n++;
         weeks.set(wk, w);
         const dk = dayKey(l.course, l.day_label);
-        const d = days.get(dk) ?? { label: l.day_label, n: 0, date: l.date };
+        const d = days.get(dk) ?? { label: l.day_label, n: 0, date: l.date, course: l.course };
         d.n++;
         days.set(dk, d);
-        const le = lectures.get(l.lecture_id) ?? { title: l.title, n: 0, dayK: dk, dayLabel: l.day_label, date: l.date };
+        const le = lectures.get(l.lecture_id) ?? { title: l.title, n: 0, dayK: dk, dayLabel: l.day_label, date: l.date, course: l.course };
         le.n++;
         lectures.set(l.lecture_id, le);
       }
@@ -102,17 +115,17 @@ export function QuizBuilderPage() {
 
   if (!cands) return null;
 
-  const filtered = cands.filter((c) => matchesFilters(c, f, now)).length;
-  const eligible = eligiblePool(cands, config, now).length;
+  const filtered = cands.filter((c) => matchesFilters(c, effective.filters, now)).length;
+  const eligible = eligiblePool(cands, effective, now).length;
   const serve = Math.min(config.count, eligible);
   const needsWeek = config.mode === 'weekly' && f.weeks.length === 0;
-  const activeFilters = LIST_KEYS.reduce((n, k) => n + f[k].length, 0);
+  const activeFilters = LIST_KEYS.reduce((n, k) => n + f[k].length, 0) + folderSel.length;
 
-  const lecturesByDay = new Map<string, { label: string; items: (typeof facets.lectures)[number][] }>();
+  const lecturesByDay = new Map<string, { label: string; course: string; items: (typeof facets.lectures)[number][] }>();
   for (const entry of facets.lectures) {
     const [id, l] = entry;
     if (lectureSearch && !`${l.title} ${id} ${l.dayLabel}`.toLowerCase().includes(lectureSearch.toLowerCase())) continue;
-    const g = lecturesByDay.get(l.dayK) ?? { label: l.dayLabel, items: [] };
+    const g = lecturesByDay.get(l.dayK) ?? { label: l.dayLabel, course: l.course, items: [] };
     g.items.push(entry);
     lecturesByDay.set(l.dayK, g);
   }
@@ -130,7 +143,7 @@ export function QuizBuilderPage() {
     setStarting(true);
     let title = `${MODE_LABELS[config.mode]} · ${serve} Q`;
     if (config.mode === 'weekly') title = `Weekly review · ${f.weeks.map((w) => facets.weeks.find(([k]) => k === w)?.[1].label ?? w).join(', ')}`;
-    const s = await createQuiz(config, title);
+    const s = await createQuiz(effective, title);
     setStarting(false);
     if (s) navigate(`/quiz/${s.id}`);
   }
@@ -248,7 +261,11 @@ export function QuizBuilderPage() {
           <h2 className="text-base font-semibold">Filters</h2>
           <span className="text-sm text-slate-500">{activeFilters ? `${activeFilters} active · ` : ''}empty = everything</span>
           {activeFilters > 0 && (
-            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setConfig((c) => ({ ...c, filters: defaultConfig().filters }))}>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={() => {
+                setConfig((c) => ({ ...c, filters: defaultConfig().filters }));
+                setFolderSel([]);
+              }}
+            >
               Clear all
             </Button>
           )}
@@ -266,7 +283,7 @@ export function QuizBuilderPage() {
             <FilterGroup label="Course / block">
               {facets.courses.map(([c, n]) => (
                 <Chip key={c} selected={f.courses.includes(c)} onClick={() => toggle('courses', c)} count={n}>
-                  {c}
+                  {names.course(c)}
                 </Chip>
               ))}
             </FilterGroup>
@@ -276,16 +293,48 @@ export function QuizBuilderPage() {
             <FilterGroup label="Week">
               {facets.weeks.map(([k, w]) => (
                 <Chip key={k} selected={f.weeks.includes(k)} onClick={() => toggle('weeks', k)} count={w.n}>
-                  {facets.courses.length > 1 ? w.label : `Week ${w.week}`}
+                  {facets.courses.length > 1 ? `${names.course(w.course)} · ${names.week(w.course, w.week)}` : names.week(w.course, w.week)}
                 </Chip>
               ))}
             </FilterGroup>
           )}
 
+          {tree && (folders?.length ?? 0) > 0 && (
+            <div>
+              <div className="mb-2 text-sm font-medium">
+                Folders <span className="font-normal text-slate-500">· includes subfolders</span>
+              </div>
+              <div className="max-h-60 overflow-auto rounded-lg border border-slate-200 p-2 dark:border-slate-800">
+                {folderRows(tree.children, null, 0).map(({ f: fo, depth }) => {
+                  const n = lecturesUnder(tree, fo.id).length;
+                  return (
+                    <label
+                      key={fo.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      style={{ paddingLeft: 4 + depth * 18 }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-indigo-600"
+                        checked={folderSel.includes(fo.id)}
+                        onChange={() => setFolderSel((sel) => (sel.includes(fo.id) ? sel.filter((x) => x !== fo.id) : [...sel, fo.id]))}
+                      />
+                      <FolderIcon className="h-4 w-4 shrink-0 text-indigo-500" />
+                      <span className="flex-1 truncate">{fo.name}</span>
+                      <span className="text-xs tabular-nums text-slate-500">
+                        {n} lecture{n === 1 ? '' : 's'}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <FilterGroup label="Day">
             {facets.days.map(([k, d]) => (
               <Chip key={k} selected={f.days.includes(k)} onClick={() => toggle('days', k)} count={d.n}>
-                {d.label}
+                {names.day(d.course, d.label)}
               </Chip>
             ))}
           </FilterGroup>
@@ -301,7 +350,7 @@ export function QuizBuilderPage() {
             <div className="max-h-72 space-y-3 overflow-auto rounded-lg border border-slate-200 p-3 dark:border-slate-800">
               {[...lecturesByDay].map(([dk, g]) => (
                 <div key={dk}>
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{g.label}</div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{names.day(g.course, g.label)}</div>
                   {g.items.map(([id, l]) => (
                     <label key={id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50">
                       <input type="checkbox" className="accent-indigo-600" checked={f.lectures.includes(id)} onChange={() => toggle('lectures', id)} />
@@ -381,4 +430,8 @@ function FilterGroup({ label, hint, children }: { label: string; hint?: string; 
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
+}
+
+function folderRows(children: Map<string | null, Folder[]>, parent: string | null, depth: number): { f: Folder; depth: number }[] {
+  return (children.get(parent) ?? []).flatMap((f) => [{ f, depth }, ...folderRows(children, f.id, depth + 1)]);
 }

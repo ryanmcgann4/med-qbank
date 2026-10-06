@@ -23,6 +23,7 @@ const router = createHashRouter([
       { path: '/quiz/:id', element: <QuizPage /> },
       { path: '/quiz/:id/review', element: <QuizReviewPage /> },
       { path: '/library', element: <LibraryPage /> },
+      { path: '/library/f/:folderId', element: <LibraryPage /> },
       { path: '/library/:lectureId', element: <LibraryPage /> },
       {
         path: '/stats',

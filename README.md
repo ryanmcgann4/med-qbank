@@ -53,6 +53,17 @@ visited in a while, but Home Screen apps are exempt. Back up regardless.
 
 ## Daily workflow
 
+**Fastest: the Claude skill.** On the Add page, **Download skill**, then in
+claude.ai go to Settings → Capabilities (Code execution and file creation on) →
+Skills → Upload skill. After that, attach a day's slides and say something like
+"Q-Bank: Block 2 (B2) Week 6 Day 2". Claude writes the questions, runs a
+checker on its own file (format, answer keys, letter references, objective
+coverage, answer-letter balance), and hands you the file to import. The skill
+lives in `claude-skill/qbank-generator/` and `npm run skill` builds
+`public/qbank-skill.zip`.
+
+**Without the skill:**
+
 1. **Add → Generate in Claude.** Fill in course, code, week, day, and date (the
    day label fills itself in), then click **Copy generator prompt**.
 2. Open a new Claude chat, paste the prompt, and attach that day's slides.
@@ -150,7 +161,14 @@ answers in a row. The home screen shows how many are due today.
   volume, calibration (accuracy when Sure / Unsure / Guess vs. 20% chance),
   accuracy by week, and sortable tables by lecture and tag. Every chart has a
   table view.
-- **Library:** browse week → day → lecture with summaries and objectives. Each
+- **Library:** folders you control. Imports are filed automatically under
+  Course › Week › Day, and those are ordinary folders: rename them, add folders
+  and subfolders, and **Move** lectures or folders anywhere. Rename a lecture
+  from its page (**Reset** restores the imported name). Renames and placement
+  survive re-importing a day and sync between devices. Deleting a folder either
+  moves its contents up a level or deletes them with their questions. **Quiz
+  this folder** quizzes everything inside, and the quiz builder has a Folders
+  filter. Each lecture page shows summaries and objectives. Each
   objective shows how many questions cite it, so gaps in Claude's coverage
   stand out. Full-text search covers stems, answers, explanations, tags, and
   lectures. Every question shows its answer history and next review date.
@@ -232,6 +250,8 @@ src/lib/backup.ts      export, restore, two-device merge
 src/lib/anki.ts        Anki CSV
 src/lib/stats.ts       aggregations for the Stats page
 src/lib/edit.ts        in-app edits + revert
+src/lib/org.ts         Library folders: auto-filing, rename/move/delete
+claude-skill/          the Q-Bank skill for Claude (instructions, format, validator)
 src/lib/sync/…         GitHub sync: file layout (shards), Git client, sync engine, auto-sync triggers
 src/lib/prompt.ts      the generator prompt
 src/pages/…            Home, Add, Quiz builder, Quiz runner, Review, Library, Stats, Data

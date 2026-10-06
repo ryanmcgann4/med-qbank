@@ -5,6 +5,7 @@ import {
   type Attempt,
   type Deletion,
   type Exam,
+  type Folder,
   type ImportRecord,
   type KV,
   type Progress,
@@ -30,6 +31,7 @@ export interface BackupData {
   /** Tombstones (absent in backups made before sync existed). */
   deletions?: Deletion[];
   exams?: Exam[];
+  folders?: Folder[];
 }
 
 export interface BackupFile extends BackupData {
@@ -52,6 +54,7 @@ const BackupShape = z.object({
   kv: z.array(z.object({ key: z.string() }).loose()).default([]),
   deletions: z.array(z.object({ id: z.string(), at: z.number() }).loose()).default([]),
   exams: z.array(z.object({ id: z.string(), date: z.string() }).loose()).default([]),
+  folders: z.array(z.object({ id: z.string(), name: z.string() }).loose()).default([]),
 });
 
 /** Device-local keys (sync bookkeeping) never leave this browser in a backup. */
@@ -60,7 +63,7 @@ const isDeviceKey = (key: string) => key.startsWith('sync');
 export const backupFileName = (now = Date.now()) => `qbank-backup-${todayISO(now)}.json`;
 
 export async function readAll(database: QBankDB = defaultDb): Promise<BackupData> {
-  const [questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams] = await Promise.all([
+  const [questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams, folders] = await Promise.all([
     database.questions.toArray(),
     database.lectures.toArray(),
     database.progress.toArray(),
@@ -70,8 +73,9 @@ export async function readAll(database: QBankDB = defaultDb): Promise<BackupData
     database.kv.toArray(),
     database.deletions.toArray(),
     database.exams.toArray(),
+    database.folders.toArray(),
   ]);
-  return { questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams };
+  return { questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams, folders };
 }
 
 export async function exportBackup(database: QBankDB = defaultDb, now = Date.now()): Promise<BackupFile> {
@@ -144,10 +148,24 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
   // A re-import after a delete is newer than the tombstone and survives.
   for (const [qid, q] of questions) if (deletedAt('question', qid) >= q.updatedAt) questions.delete(qid);
 
+  // Imported content follows the newest import; your rename and folder each follow your newest change.
   const lectures = new Map(current.lectures.map((l) => [l.lecture_id, l]));
   for (const l of incoming.lectures) {
     const mine = lectures.get(l.lecture_id);
-    if (!mine || l.importedAt > mine.importedAt) lectures.set(l.lecture_id, l);
+    if (!mine) {
+      lectures.set(l.lecture_id, l);
+      continue;
+    }
+    const base = l.importedAt > mine.importedAt ? l : mine;
+    const named = (l.renamedAt ?? 0) > (mine.renamedAt ?? 0) ? l : mine;
+    const filed = (l.movedAt ?? 0) > (mine.movedAt ?? 0) ? l : mine;
+    lectures.set(l.lecture_id, {
+      ...base,
+      ...(named.renamedAt ? { title: named.title, renamedAt: named.renamedAt, importedTitle: named.importedTitle } : {}),
+      // A deliberate move to the top level is null, which must not fall back to an auto folder.
+      folderId: filed.movedAt ? filed.folderId : (base.folderId ?? (base === l ? mine : l).folderId),
+      movedAt: filed.movedAt,
+    });
   }
   for (const [id, l] of lectures) if (deletedAt('lecture', id) >= l.importedAt) lectures.delete(id);
 
@@ -202,6 +220,13 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
   }
   for (const [id, e] of exams) if (deletedAt('exam', id) >= e.updatedAt) exams.delete(id);
 
+  const folders = new Map((current.folders ?? []).map((f) => [f.id, f]));
+  for (const f of incoming.folders ?? []) {
+    const mine = folders.get(f.id);
+    if (!mine || f.updatedAt > mine.updatedAt) folders.set(f.id, f);
+  }
+  for (const [id, f] of folders) if (deletedAt('folder', id) >= f.updatedAt) folders.delete(id);
+
   const kv = new Map(incoming.kv.filter((k) => !isDeviceKey(k.key)).map((k) => [k.key, k]));
   for (const k of current.kv) kv.set(k.key, k);
 
@@ -215,10 +240,11 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
     kv: [...kv.values()],
     deletions: [...deletions.values()],
     exams: [...exams.values()],
+    folders: [...folders.values()],
   };
 }
 
-const allTables = (d: QBankDB) => [d.questions, d.lectures, d.progress, d.attempts, d.sessions, d.imports, d.kv, d.deletions, d.exams];
+const allTables = (d: QBankDB) => [d.questions, d.lectures, d.progress, d.attempts, d.sessions, d.imports, d.kv, d.deletions, d.exams, d.folders];
 
 async function replaceAll(data: BackupData, database: QBankDB) {
   await database.transaction('rw', allTables(database), async () => {
@@ -232,6 +258,7 @@ async function replaceAll(data: BackupData, database: QBankDB) {
     await database.kv.bulkAdd(data.kv);
     await database.deletions.bulkAdd(data.deletions ?? []);
     await database.exams.bulkAdd(data.exams ?? []);
+    await database.folders.bulkAdd(data.folders ?? []);
   });
 }
 

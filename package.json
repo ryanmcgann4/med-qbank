@@ -10,7 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "schema": "tsx scripts/gen-schema.ts",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "skill": "node scripts/build-skill.mjs",
+    "prebuild": "npm run schema && npm run skill",
+    "predev": "npm run skill"
   },
   "dependencies": {
     "dexie": "^4.4.6",

@@ -21,6 +21,25 @@ export interface StoredLecture extends Lecture {
   day_label: string;
   date: string;
   importedAt: number;
+  /** Library folder; undefined = not filed yet (gets auto-filed under Course › Week › Day). */
+  folderId?: string | null;
+  /** Set when you move it; newest move wins when devices sync. */
+  movedAt?: number;
+  /** Set when you rename it; a rename survives re-importing the day. */
+  renamedAt?: number;
+  /** The title from the import file, kept so a rename can be undone. */
+  importedTitle?: string;
+}
+
+/** A Library folder. Auto-created ones (Course › Week › Day) carry an autoKey so imports find them again. */
+export interface Folder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  /** `course:<c>`, `week:<c>::<w>` or `day:<c>::<label>` for auto-created folders. */
+  autoKey?: string;
+  /** 0 for untouched auto folders, so any change you make wins when devices sync. */
+  updatedAt: number;
 }
 
 export interface SrsState {
@@ -68,7 +87,7 @@ export interface Exam {
 export interface Deletion {
   /** `lecture:<lecture_id>` or `question:<qid>` */
   id: string;
-  kind: 'lecture' | 'question' | 'exam';
+  kind: 'lecture' | 'question' | 'exam' | 'folder';
   key: string;
   at: number;
 }
@@ -176,6 +195,7 @@ export class QBankDB extends Dexie {
   kv!: EntityTable<KV, 'key'>;
   deletions!: EntityTable<Deletion, 'id'>;
   exams!: EntityTable<Exam, 'id'>;
+  folders!: EntityTable<Folder, 'id'>;
 
   constructor(name = 'med-qbank') {
     super(name);
@@ -190,6 +210,7 @@ export class QBankDB extends Dexie {
     });
     this.version(2).stores({ deletions: 'id, at' });
     this.version(3).stores({ exams: 'id, date' });
+    this.version(4).stores({ folders: 'id, parentId, autoKey' });
   }
 }
 

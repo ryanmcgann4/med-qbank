@@ -2,16 +2,16 @@
  * How the bank is laid out as files in the sync repo. Small, stable files so
  * a sync only uploads what changed:
  *
- *   lectures.json · imports.json · deletions.json · progress-meta.json · exams.json
+ *   lectures.json · imports.json · deletions.json · progress-meta.json · exams.json · folders.json
  *   questions/<lecture_id>.json   attempts/<YYYY-MM-DD>.json   sessions/<id>.json
  *
  * Progress counts and scheduling aren't stored; they're rebuilt from attempts.
  */
-import { emptyProgress, type Attempt, type Deletion, type Exam, type Progress, type QuizSession, type StoredQuestion } from '../../db';
+import { emptyProgress, type Attempt, type Deletion, type Exam, type Folder, type Progress, type QuizSession, type StoredQuestion } from '../../db';
 import type { BackupData } from '../backup';
 import { todayISO } from '../dates';
 
-export const MANAGED = /^(lectures|imports|deletions|progress-meta|exams)\.json$|^(questions|attempts|sessions)\/[^/]+\.json$/;
+export const MANAGED = /^(lectures|imports|deletions|progress-meta|exams|folders)\.json$|^(questions|attempts|sessions)\/[^/]+\.json$/;
 
 /** JSON with sorted keys, one array item per line: identical data → identical bytes on every device. */
 export function stableStringify(value: unknown): string {
@@ -44,6 +44,7 @@ export function toShards(data: BackupData): Map<string, string> {
   const files = new Map<string, string>();
   files.set('lectures.json', stableStringify([...data.lectures].sort(by((l) => l.lecture_id))));
   files.set('imports.json', stableStringify(data.imports.map(({ id: _id, ...rest }) => rest).sort(by((i) => i.importedAt))));
+  files.set('folders.json', stableStringify([...(data.folders ?? [])].sort(by((f) => f.id))));
   files.set('exams.json', stableStringify([...(data.exams ?? [])].sort(by((e) => e.id))));
   files.set('deletions.json', stableStringify([...(data.deletions ?? [])].sort(by((d) => d.id))));
   files.set(
@@ -67,13 +68,14 @@ export function toShards(data: BackupData): Map<string, string> {
 
 /** Parse whichever shard files were downloaded into (partial) backup data. */
 export function fromShards(files: ReadonlyMap<string, string>): BackupData {
-  const data: Required<BackupData> = { questions: [], lectures: [], progress: [], attempts: [], sessions: [], imports: [], kv: [], deletions: [], exams: [] };
+  const data: Required<BackupData> = { questions: [], lectures: [], progress: [], attempts: [], sessions: [], imports: [], kv: [], deletions: [], exams: [], folders: [] };
   for (const [path, text] of files) {
     const v = JSON.parse(text);
     if (path === 'lectures.json') data.lectures.push(...v);
     else if (path === 'imports.json') data.imports.push(...v);
     else if (path === 'deletions.json') data.deletions.push(...(v as Deletion[]));
     else if (path === 'exams.json') data.exams.push(...(v as Exam[]));
+    else if (path === 'folders.json') data.folders.push(...(v as Folder[]));
     else if (path === 'progress-meta.json') data.progress.push(...(v as Partial<Progress>[]).map((m) => ({ ...emptyProgress(m.qid!), ...m })));
     else if (path.startsWith('questions/')) data.questions.push(...(v as StoredQuestion[]));
     else if (path.startsWith('attempts/')) data.attempts.push(...(v as Attempt[]));

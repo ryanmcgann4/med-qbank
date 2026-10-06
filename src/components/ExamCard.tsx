@@ -5,6 +5,7 @@ import { db, type Exam, type StoredLecture } from '../db';
 import { useStartQuiz } from '../hooks/useStartQuiz';
 import { formatDate, todayISO } from '../lib/dates';
 import { deleteExam, planFor, saveExam, upcoming, type ExamPlan } from '../lib/exams';
+import { autoNames } from '../lib/org';
 import { weekKey, type Candidate } from '../lib/selection';
 import { Button, Card, Chip, cn, Field, inputClass, Modal, pct } from './ui';
 
@@ -133,6 +134,8 @@ function Bar({ label, done, target }: { label: string; done: number; target: num
 
 function ExamModal({ exam, lectures, onClose }: { exam: Exam | null; lectures: StoredLecture[]; onClose: () => void }) {
   const courses = useMemo(() => [...new Set(lectures.map((l) => l.course))].sort(), [lectures]);
+  const folders = useLiveQuery(() => db.folders.toArray(), []);
+  const names = useMemo(() => autoNames(folders ?? []), [folders]);
   const [name, setName] = useState(exam?.name ?? (courses[0] ? `${courses[0]} exam` : ''));
   const [date, setDate] = useState(exam?.date ?? '');
   const [course, setCourse] = useState(exam?.course ?? courses[0] ?? '');
@@ -171,7 +174,9 @@ function ExamModal({ exam, lectures, onClose }: { exam: Exam | null; lectures: S
               }}
             >
               {courses.map((c) => (
-                <option key={c}>{c}</option>
+                <option key={c} value={c}>
+                  {names.course(c)}
+                </option>
               ))}
             </select>
           ) : (
@@ -186,7 +191,7 @@ function ExamModal({ exam, lectures, onClose }: { exam: Exam | null; lectures: S
             </Chip>
             {weekOptions.map((k) => (
               <Chip key={k} selected={weeks.includes(k)} onClick={() => setWeeks(weeks.includes(k) ? weeks.filter((w) => w !== k) : [...weeks, k])}>
-                Week {k.split('::')[1]}
+                {names.week(course, Number(k.split('::')[1]))}
               </Chip>
             ))}
           </div>

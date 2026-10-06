@@ -1,15 +1,16 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, ChevronRight, PlayCircle, Search, Trash2 } from 'lucide-react';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { FolderInput, Pencil, PlayCircle, Search, Trash2 } from 'lucide-react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { QuestionRow, highlight } from '../components/QuestionRow';
+import { Breadcrumbs, folderUrl, FolderPicker, FolderView, LectureCard, lectureStats, NameModal } from '../components/LibraryFolders';
+import { QuestionRow } from '../components/QuestionRow';
 import { Badge, Button, Card, Chip, cn, inputClass, Modal, PageHeader, pct } from '../components/ui';
 import { db, type StoredLecture } from '../db';
 import { useCandidates } from '../hooks/useBank';
 import { useStartQuiz } from '../hooks/useStartQuiz';
-import { formatDate } from '../lib/dates';
 import { deleteLectures } from '../lib/importer';
 import { normalizeText } from '../lib/hash';
+import { buildTree, ensureOrganization, moveLectures, renameLecture, type Tree } from '../lib/org';
 import { emptyFilters, type Candidate } from '../lib/selection';
 import { hasStatus } from '../lib/status';
 
@@ -45,24 +46,21 @@ function haystack(c: Candidate): string {
     .toLowerCase();
 }
 
-function lectureStats(all: Candidate[]) {
-  const cands = all.filter((c) => !c.progress?.archived);
-  const seen = cands.filter((c) => c.progress?.timesSeen).length;
-  const attempts = cands.reduce((n, c) => n + (c.progress?.timesSeen ?? 0), 0);
-  const correct = cands.reduce((n, c) => n + (c.progress?.timesCorrect ?? 0), 0);
-  return { total: cands.length, seen, accuracy: attempts ? correct / attempts : null, archived: all.length - cands.length };
-}
-
 export function LibraryPage() {
-  const { lectureId } = useParams();
+  const { lectureId, folderId } = useParams();
   const cands = useCandidates({ includeArchived: true });
   const lectures = useLiveQuery(() => db.lectures.toArray(), []);
-  if (!cands || !lectures) return null;
-  if (lectureId) return <LectureDetail lectureId={lectureId} cands={cands} lectures={lectures} />;
-  return <LibraryIndex cands={cands} lectures={lectures} />;
+  const folders = useLiveQuery(() => db.folders.toArray(), []);
+  useEffect(() => {
+    void ensureOrganization();
+  }, []);
+  const tree = useMemo(() => (folders && lectures ? buildTree(folders, lectures) : null), [folders, lectures]);
+  if (!cands || !lectures || !tree) return null;
+  if (lectureId) return <LectureDetail lectureId={lectureId} cands={cands} lectures={lectures} tree={tree} />;
+  return <LibraryIndex cands={cands} lectures={lectures} tree={tree} folderId={folderId ?? null} />;
 }
 
-function LibraryIndex({ cands, lectures }: { cands: Candidate[]; lectures: StoredLecture[] }) {
+function LibraryIndex({ cands, lectures, tree, folderId }: { cands: Candidate[]; lectures: StoredLecture[]; tree: Tree; folderId: string | null }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [limit, setLimit] = useState(50);
@@ -90,21 +88,6 @@ function LibraryIndex({ cands, lectures }: { cands: Candidate[]; lectures: Store
         return terms.every((t) => h.includes(t));
       })
     : [];
-
-  // Week → day → lectures, newest first.
-  const weeks = useMemo(() => {
-    const w = new Map<string, { label: string; days: Map<string, { label: string; date: string; lectures: StoredLecture[] }> }>();
-    for (const l of [...lectures].sort((a, b) => b.date.localeCompare(a.date) || a.lecture_id.localeCompare(b.lecture_id))) {
-      const wk = `${l.course}::${l.week}`;
-      const week = w.get(wk) ?? { label: `${l.course} · Week ${l.week}`, days: new Map() };
-      const dk = `${l.course}::${l.day_label}`;
-      const day = week.days.get(dk) ?? { label: l.day_label, date: l.date, lectures: [] };
-      day.lectures.push(l);
-      week.days.set(dk, day);
-      w.set(wk, week);
-    }
-    return [...w.values()];
-  }, [lectures]);
 
   return (
     <div>
@@ -159,65 +142,17 @@ function LibraryIndex({ cands, lectures }: { cands: Candidate[]; lectures: Store
           </section>
         </div>
       ) : (
-        <div className="mt-6 space-y-8">
-          {weeks.map((w) => (
-            <section key={w.label}>
-              <h2 className="mb-3 text-lg font-semibold">{w.label}</h2>
-              <div className="space-y-4">
-                {[...w.days.values()].map((d) => (
-                  <div key={d.label}>
-                    <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-400">
-                      <span className="flex-1">
-                        {d.label} <span className="text-slate-400">· {formatDate(d.date)}</span>
-                      </span>
-                      <DeleteLectures
-                        name={d.label}
-                        lectures={d.lectures}
-                        questions={d.lectures.reduce((n, l) => n + (byLecture.get(l.lecture_id)?.length ?? 0), 0)}
-                        label="Delete day"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      {d.lectures.map((l) => (
-                        <LectureCard key={l.lecture_id} l={l} cands={byLecture.get(l.lecture_id) ?? []} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-          {weeks.length === 0 && <p className="text-slate-500">No lectures yet. Import a day file on the Add page.</p>}
+        <div className="mt-6">
+          <FolderView tree={tree} folderId={folderId} byLecture={byLecture} />
         </div>
       )}
     </div>
   );
 }
 
-function LectureCard({ l, cands, terms = [] }: { l: StoredLecture; cands: Candidate[]; terms?: string[] }) {
-  const s = lectureStats(cands);
-  return (
-    <Link to={`/library/${encodeURIComponent(l.lecture_id)}`} className="block">
-      <Card className="flex items-center gap-3 p-4 transition-colors hover:border-indigo-300 dark:hover:border-indigo-800">
-        <div className="min-w-0 flex-1">
-          <div className="font-medium">{highlight(l.title, terms)}</div>
-          <div className="text-sm text-slate-500">
-            {l.lecturer && `${l.lecturer} · `}
-            {s.total} questions · {s.seen} seen · {pct(s.accuracy)} accuracy
-            {s.archived > 0 && ` · ${s.archived} archived`}
-          </div>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" aria-hidden>
-            <div className="h-full rounded-full bg-indigo-500" style={{ width: `${s.total ? (s.seen / s.total) * 100 : 0}%` }} />
-          </div>
-        </div>
-        <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
-      </Card>
-    </Link>
-  );
-}
-
-function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cands: Candidate[]; lectures: StoredLecture[] }) {
+function LectureDetail({ lectureId, cands, lectures, tree }: { lectureId: string; cands: Candidate[]; lectures: StoredLecture[]; tree: Tree }) {
   const l = lectures.find((x) => x.lecture_id === lectureId);
+  const [modal, setModal] = useState<null | 'rename' | 'move'>(null);
   // Archived questions are listed last; everything else on this page counts only active ones.
   const mine = cands
     .filter((c) => c.q.lecture_id === lectureId)
@@ -248,9 +183,7 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/library" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
-        <ArrowLeft className="h-4 w-4" /> Library
-      </Link>
+      <Breadcrumbs tree={tree} folderId={l.folderId} />
       <PageHeader
         title={l.title}
         subtitle={
@@ -307,10 +240,48 @@ function LectureDetail({ lectureId, cands, lectures }: { lectureId: string; cand
         >
           All {active.length}
         </Button>
-        <span className="ml-auto">
-          <DeleteLectures name={l.title} lectures={[l]} questions={mine.length} label="Delete lecture" onDone={() => navigate('/library')} />
+        <span className="ml-auto flex flex-wrap gap-1">
+          <Button size="sm" variant="ghost" onClick={() => setModal('rename')}>
+            <Pencil className="h-4 w-4" /> Rename
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setModal('move')}>
+            <FolderInput className="h-4 w-4" /> Move
+          </Button>
+          <DeleteLectures name={l.title} lectures={[l]} questions={mine.length} label="Delete" onDone={() => navigate(folderUrl(l.folderId ?? null))} />
         </span>
       </div>
+      {modal === 'rename' && (
+        <NameModal
+          title="Rename lecture"
+          initial={l.title}
+          onClose={() => setModal(null)}
+          onSave={(name) => renameLecture(l.lecture_id, name)}
+          extra={
+            l.importedTitle &&
+            l.importedTitle !== l.title && (
+              <button
+                type="button"
+                className="mt-2 text-sm text-indigo-600 underline dark:text-indigo-400"
+                onClick={async () => {
+                  await renameLecture(l.lecture_id, null);
+                  setModal(null);
+                }}
+              >
+                Reset to “{l.importedTitle}”
+              </button>
+            )
+          }
+        />
+      )}
+      {modal === 'move' && (
+        <FolderPicker
+          tree={tree}
+          title={`Move "${l.title}" to…`}
+          current={l.folderId}
+          onClose={() => setModal(null)}
+          onPick={(target) => moveLectures([l.lecture_id], target)}
+        />
+      )}
       {message && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{message}</p>}
 
       <h2 className="mb-3 mt-8 text-base font-semibold">Questions</h2>

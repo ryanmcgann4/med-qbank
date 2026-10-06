@@ -1,5 +1,6 @@
 import { db as defaultDb, type QBankDB, type StoredLecture, type StoredQuestion } from '../db';
 import { classifyQuestions, defaultResolution, freeQid, type Classified, type Resolution } from './dedupe';
+import { ensureOrganization } from './org';
 import { validateText, type FileValidation } from './validate';
 
 export interface ImportSource {
@@ -91,11 +92,18 @@ export async function applyImport(
 
   const importId = await database.transaction(
     'rw',
-    [database.questions, database.lectures, database.imports],
+    [database.questions, database.lectures, database.imports, database.folders, database.deletions],
     async () => {
       for (const { lecture } of plan.lectures) {
         const prev = await database.lectures.get(lecture.lecture_id);
-        await database.lectures.put({ ...lecture, importedAt: prev?.importedAt ?? lecture.importedAt });
+        // Re-importing a day refreshes its content but keeps where you filed it and what you renamed it.
+        await database.lectures.put({
+          ...lecture,
+          importedAt: prev?.importedAt ?? lecture.importedAt,
+          folderId: prev?.folderId,
+          movedAt: prev?.movedAt,
+          ...(prev?.renamedAt ? { title: prev.title, renamedAt: prev.renamedAt, importedTitle: lecture.title } : {}),
+        });
         if (!outcome.lectureIds.includes(lecture.lecture_id)) outcome.lectureIds.push(lecture.lecture_id);
       }
 
@@ -125,6 +133,8 @@ export async function applyImport(
           outcome.skipped++;
         }
       }
+
+      await ensureOrganization(database);
 
       return database.imports.add({
         importedAt: now,

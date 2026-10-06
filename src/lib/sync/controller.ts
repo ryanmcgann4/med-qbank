@@ -176,7 +176,7 @@ export function startAutoSync() {
   Dexie.on('storagemutated', (parts) => {
     if (!loadConfig()) return;
     // Quiz timers and sync bookkeeping (sessions, kv) change constantly; only real data counts.
-    if (Object.keys(parts).some((k) => /\/(attempts|progress|questions|lectures|deletions|imports|exams)\//.test(k))) {
+    if (Object.keys(parts).some((k) => /\/(attempts|progress|questions|lectures|deletions|imports|exams|folders)\//.test(k))) {
       dirty = true;
       soon();
     }
