@@ -132,6 +132,9 @@ For each lecture: summary = 2–4 sentences on what it covers. learning_objectiv
 - Never refer to options by letter anywhere ("A is wrong because…", "unlike choice C…"). My app shuffles the option order, so refer to options by their content.
 - key_takeaway: one high-yield sentence.
 
+## Practice questions on the slides
+If the slides include practice questions (check-your-understanding, clicker, board-style examples), include every one: rewrite it into this format (5 options, every option explained), keep the professor's intended answer (or work it out from the lecture and say so), cite that slide, and add the tag "from-lecture".
+
 ## Coverage and quantity
 - Cover EVERY learning objective of every lecture with at least one question.
 - Write about 8–15 questions per hour of lecture, scaled to how dense the content is.

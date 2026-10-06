@@ -1,9 +1,11 @@
-import { ChevronRight, Folder as FolderIcon, FolderInput, FolderPlus, Home, Pencil, PlayCircle, Trash2 } from 'lucide-react';
+import { Archive, CheckSquare, ChevronRight, Folder as FolderIcon, FolderInput, FolderPlus, Home, Pencil, PlayCircle, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { Folder, StoredLecture } from '../db';
 import { useStartQuiz } from '../hooks/useStartQuiz';
-import { createFolder, deleteFolder, descendants, lecturesUnder, moveFolder, pathTo, renameFolder, type Tree } from '../lib/org';
+import { deleteLectures } from '../lib/importer';
+import { createFolder, deleteFolder, descendants, lecturesUnder, moveFolder, moveLectures, pathTo, renameFolder, type Tree } from '../lib/org';
+import { setLecturesArchived } from '../lib/tracking';
 import { emptyFilters, type Candidate } from '../lib/selection';
 import { highlight } from './QuestionRow';
 import { Button, Card, cn, inputClass, Modal, pct } from './ui';
@@ -64,7 +66,14 @@ export function Breadcrumbs({ tree, folderId, tail }: { tree: Tree; folderId: st
 export function FolderView({ tree, folderId, byLecture }: { tree: Tree; folderId: string | null; byLecture: Map<string, Candidate[]> }) {
   const navigate = useNavigate();
   const folder = folderId ? tree.byId.get(folderId) : undefined;
-  const [modal, setModal] = useState<null | 'new' | 'rename' | 'move' | 'delete'>(null);
+  const [modal, setModal] = useState<null | 'new' | 'rename' | 'move' | 'delete' | 'bulk-move' | 'bulk-archive' | 'bulk-delete'>(null);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSel = (id: string) => setSelected((s) => new Set(s.has(id) ? [...s].filter((x) => x !== id) : [...s, id]));
+  const endSelect = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
   const { start, busy, message } = useStartQuiz();
   const subfolders = tree.children.get(folderId) ?? [];
   const lectures = tree.lectures.get(folderId) ?? [];
@@ -135,9 +144,33 @@ export function FolderView({ tree, folderId, byLecture }: { tree: Tree; folderId
             </Link>
           );
         })}
-        {lectures.map((l) => (
-          <LectureCard key={l.lecture_id} l={l} cands={byLecture.get(l.lecture_id) ?? []} />
-        ))}
+        {lectures.length > 0 && (
+          <div className="flex items-center gap-2 pt-1 text-sm">
+            {selecting ? (
+              <>
+                <button type="button" className="text-indigo-600 underline dark:text-indigo-400" onClick={() => setSelected(new Set(lectures.map((l) => l.lecture_id)))}>
+                  Select all {lectures.length}
+                </button>
+                {selected.size > 0 && (
+                  <button type="button" className="text-slate-500 underline" onClick={() => setSelected(new Set())}>
+                    Clear
+                  </button>
+                )}
+              </>
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => setSelecting(true)}>
+                <CheckSquare className="h-4 w-4" /> Select lectures
+              </Button>
+            )}
+          </div>
+        )}
+        {lectures.map((l) =>
+          selecting ? (
+            <SelectableLecture key={l.lecture_id} l={l} cands={byLecture.get(l.lecture_id) ?? []} checked={selected.has(l.lecture_id)} onToggle={() => toggleSel(l.lecture_id)} />
+          ) : (
+            <LectureCard key={l.lecture_id} l={l} cands={byLecture.get(l.lecture_id) ?? []} />
+          ),
+        )}
         {!subfolders.length && !lectures.length && (
           <p className="rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-slate-700">
             {folder
@@ -147,6 +180,76 @@ export function FolderView({ tree, folderId, byLecture }: { tree: Tree; folderId
         )}
       </div>
 
+      {selecting && (
+        <div className="sticky bottom-20 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur sm:bottom-4 dark:border-slate-800 dark:bg-slate-900/95">
+          <span className="mr-auto text-sm font-medium">{selected.size} selected</span>
+          <Button
+            size="sm"
+            disabled={!selected.size || busy}
+            onClick={() => start({ mode: 'smart', count: 20, filters: { ...emptyFilters(), lectures: [...selected] } }, `${selected.size} lectures`)}
+          >
+            <PlayCircle className="h-4 w-4" /> Quiz
+          </Button>
+          <Button size="sm" variant="secondary" disabled={!selected.size} onClick={() => setModal('bulk-move')}>
+            <FolderInput className="h-4 w-4" /> Move
+          </Button>
+          <Button size="sm" variant="secondary" disabled={!selected.size} onClick={() => setModal('bulk-archive')}>
+            <Archive className="h-4 w-4" /> Archive
+          </Button>
+          <Button size="sm" variant="secondary" className="text-rose-600" disabled={!selected.size} onClick={() => setModal('bulk-delete')}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+          <Button size="sm" variant="ghost" onClick={endSelect}>
+            Done
+          </Button>
+        </div>
+      )}
+      {modal === 'bulk-move' && (
+        <FolderPicker
+          tree={tree}
+          title={`Move ${selected.size} lecture${selected.size === 1 ? '' : 's'} to…`}
+          current={folderId}
+          onClose={() => setModal(null)}
+          onPick={async (target) => {
+            await moveLectures([...selected], target);
+            endSelect();
+          }}
+        />
+      )}
+      {modal === 'bulk-archive' && (
+        <BulkArchiveModal
+          lectures={selected.size}
+          questions={questionCount(lectures.filter((l) => selected.has(l.lecture_id)))}
+          onClose={() => setModal(null)}
+          onApply={async (archived) => {
+            await setLecturesArchived([...selected], archived);
+            endSelect();
+          }}
+        />
+      )}
+      {modal === 'bulk-delete' && (
+        <Modal open onClose={() => setModal(null)} title={`Delete ${selected.size} lecture${selected.size === 1 ? '' : 's'}?`}>
+          <p className="text-sm text-slate-700 dark:text-slate-300">
+            This removes them and their {questionCount(lectures.filter((l) => selected.has(l.lecture_id)))} questions, along with your answer history, notes, and flags
+            for them. It can't be undone.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={async () => {
+                await deleteLectures([...selected]);
+                setModal(null);
+                endSelect();
+              }}
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </Button>
+          </div>
+        </Modal>
+      )}
       {modal === 'new' && (
         <NameModal
           title={folder ? `New folder in ${folder.name}` : 'New folder'}
@@ -384,6 +487,55 @@ function DeleteFolderModal({
           }}
         >
           <Trash2 className="h-4 w-4" /> Delete folder
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function SelectableLecture({ l, cands, checked, onToggle }: { l: StoredLecture; cands: Candidate[]; checked: boolean; onToggle: () => void }) {
+  const s = lectureStats(cands);
+  return (
+    <label className="block cursor-pointer">
+      <Card className={cn('flex items-center gap-3 p-4 transition-colors', checked && 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/40')}>
+        <input type="checkbox" className="h-5 w-5 accent-indigo-600" checked={checked} onChange={onToggle} />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">{l.title}</div>
+          <div className="text-sm text-slate-500">
+            {s.total} questions · {s.seen} seen{s.archived > 0 && ` · ${s.archived} archived`}
+          </div>
+        </div>
+      </Card>
+    </label>
+  );
+}
+
+function BulkArchiveModal({
+  lectures,
+  questions,
+  onApply,
+  onClose,
+}: {
+  lectures: number;
+  questions: number;
+  onApply: (archived: boolean) => Promise<void>;
+  onClose: () => void;
+}) {
+  return (
+    <Modal open onClose={onClose} title={`Archive ${questions} questions?`}>
+      <p className="text-sm text-slate-700 dark:text-slate-300">
+        Every question in the {lectures} selected lecture{lectures === 1 ? '' : 's'} leaves quizzes, exam plans, due counts, and stats. They stay in the Library
+        under Archived. You can also unarchive them all here.
+      </p>
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <Button variant="ghost" onClick={() => onApply(false).then(onClose)}>
+          Unarchive all
+        </Button>
+        <Button variant="secondary" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button onClick={() => onApply(true).then(onClose)}>
+          <Archive className="h-4 w-4" /> Archive
         </Button>
       </div>
     </Modal>

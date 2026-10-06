@@ -7,8 +7,9 @@
  *
  * Progress counts and scheduling aren't stored; they're rebuilt from attempts.
  */
-import { emptyProgress, type Attempt, type Deletion, type Exam, type Folder, type Progress, type QuizSession, type StoredQuestion } from '../../db';
-import type { BackupData } from '../backup';
+import type { Attempt, Deletion, Exam, Folder, Progress, QuizSession, StoredQuestion } from '../../db';
+import type { BackupData } from '../merge';
+import { emptyProgress } from '../progress';
 import { todayISO } from '../dates';
 
 export const MANAGED = /^(lectures|imports|deletions|progress-meta|exams|folders)\.json$|^(questions|attempts|sessions)\/[^/]+\.json$/;

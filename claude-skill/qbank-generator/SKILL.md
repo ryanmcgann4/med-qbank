@@ -33,6 +33,18 @@ Lecture length: use what the user says; otherwise assume 1 hour per lecture
 (~40–60 slides). Write **8–15 questions per hour**, scaled to how dense the
 content is, and **at least one question for every learning objective**.
 
+**Questions already on the slides.** If the slides include practice questions
+(e.g. "Check your understanding", "Practice question", clicker/poll questions,
+board-style examples), include every one of them:
+- Rewrite each into this format: 5 options A–E, every option explained, and a
+  full explanation grounded in the lecture.
+- Keep the professor's intended answer. If the slide doesn't give the answer,
+  work it out from the lecture content and say so in the explanation.
+- If the original has fewer than 5 choices, add plausible distractors of the
+  same kind. If it's open-ended, turn it into a one-best-answer question.
+- Add the tag `"from-lecture"` and cite that slide in `source.slides`.
+- They count toward the lecture's question total.
+
 If the user pasted a list of existing questions ("qid | stem"), don't reuse
 those qids and don't test the same fact the same way.
 

@@ -216,21 +216,7 @@ export class QBankDB extends Dexie {
 
 export const db = new QBankDB();
 
-export function emptyProgress(qid: string): Progress {
-  return {
-    qid,
-    timesSeen: 0,
-    timesCorrect: 0,
-    lastAnsweredAt: null,
-    lastResult: null,
-    lastConfidence: null,
-    streak: 0,
-    flagged: false,
-    note: '',
-    report: null,
-    srs: null,
-  };
-}
+export { emptyProgress } from './lib/progress';
 
 export async function getKV<T>(key: string, fallback: T): Promise<T> {
   const row = await db.kv.get(key);

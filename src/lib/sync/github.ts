@@ -40,8 +40,11 @@ export class SyncError extends Error {
 
 export class GitHubClient implements RepoClient {
   private cfg: SyncConfig;
-  constructor(cfg: SyncConfig) {
+  private userAgent?: string;
+  /** `userAgent` is required outside browsers (GitHub rejects requests without one). */
+  constructor(cfg: SyncConfig, { userAgent }: { userAgent?: string } = {}) {
     this.cfg = cfg;
+    this.userAgent = userAgent;
   }
 
   private async call(path: string, init: RequestInit & { raw?: boolean } = {}): Promise<Response> {
@@ -55,6 +58,7 @@ export class GitHubClient implements RepoClient {
           Authorization: `Bearer ${this.cfg.token}`,
           'X-GitHub-Api-Version': '2022-11-28',
           ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(this.userAgent ? { 'User-Agent': this.userAgent } : {}),
         },
       });
     } catch {

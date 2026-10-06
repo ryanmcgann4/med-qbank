@@ -1,25 +1,8 @@
-import { db as defaultDb, emptyProgress, type Attempt, type Confidence, type Progress, type QBankDB, type QuizConfig, type QuizSession } from '../db';
+import { db as defaultDb, emptyProgress, type Attempt, type Progress, type QBankDB, type QuizConfig, type QuizSession } from '../db';
 import { buildSession, selectQuestions, type Candidate } from './selection';
-import { schedule } from './srs';
+import { applyAttempt } from './progress';
 
-/** Fold one answer into a question's progress record (pure). */
-export function applyAttempt(
-  prev: Progress | undefined,
-  qid: string,
-  a: { correct: boolean; confidence: Confidence | null; ts: number },
-): Progress {
-  const p = prev ?? emptyProgress(qid);
-  return {
-    ...p,
-    timesSeen: p.timesSeen + 1,
-    timesCorrect: p.timesCorrect + (a.correct ? 1 : 0),
-    lastAnsweredAt: a.ts,
-    lastResult: a.correct ? 'correct' : 'wrong',
-    lastConfidence: a.confidence,
-    streak: a.correct ? p.streak + 1 : 0,
-    srs: schedule(p.srs, a.correct, a.confidence, a.ts),
-  };
-}
+export { applyAttempt };
 
 export async function recordAttempts(attempts: Omit<Attempt, 'id'>[], database: QBankDB = defaultDb): Promise<void> {
   if (!attempts.length) return;
@@ -38,6 +21,15 @@ export async function updateProgress(qid: string, patch: Partial<Omit<Progress, 
     const meta = 'flagged' in patch || 'note' in patch || 'report' in patch || 'archived' in patch;
     await database.progress.put({ ...prev, ...patch, qid, ...(meta ? { metaUpdatedAt: Date.now() } : {}) });
   });
+}
+
+/** Archive or unarchive every question in these lectures at once. Returns how many questions changed. */
+export async function setLecturesArchived(lectureIds: readonly string[], archived: boolean, database: QBankDB = defaultDb): Promise<number> {
+  const qids = (await database.questions.where('lecture_id').anyOf([...lectureIds]).primaryKeys()) as string[];
+  await database.transaction('rw', database.progress, async () => {
+    for (const qid of qids) await updateProgress(qid, { archived }, database);
+  });
+  return qids.length;
 }
 
 /** Archived questions are left out unless asked for (only the Library shows them). */

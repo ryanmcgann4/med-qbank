@@ -185,7 +185,7 @@ def check(data):
         tags = q.get("tags", [])
         if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
             err(where, "tags must be a list of strings")
-        elif not 2 <= len(tags) <= 5:
+        elif not 2 <= len([t for t in tags if t != "from-lecture"]) <= 5:
             warn(where, f"{len(tags)} tags (use 2-5)")
         if q.get("image_url") not in (None,):
             warn(where, "image_url should be null")

@@ -65,7 +65,7 @@ quotes only, no comments, no trailing commas, no `...` placeholders.
 | `correct_option` | The id of the single best answer |
 | `source.slides` | String: `"12"` or `"12-14"` |
 | `source.objective` | The learning objective tested, copied exactly from that lecture's `learning_objectives` |
-| `tags` | 2–5 lowercase tags: system, discipline, topic |
+| `tags` | 2–5 lowercase tags: system, discipline, topic. Add `from-lecture` to questions rewritten from practice questions on the slides. |
 | `image_url` | Always `null` |
 
 Copying `source.objective` exactly matters: the app matches it to the lecture's
