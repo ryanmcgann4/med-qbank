@@ -23,6 +23,32 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Quiz: each question slides in from the side you're moving toward. */
+@keyframes q-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes q-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+.q-in-next {
+  animation: q-in-next 180ms ease-out;
+}
+.q-in-prev {
+  animation: q-in-prev 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .q-in-next,
+  .q-in-prev {
+    animation: none;
+  }
+}
+
 /* Chart tokens (validated: scripts in the dataviz skill, against white / slate-900 cards). */
 :root {
   --series-1: #2a78d6;

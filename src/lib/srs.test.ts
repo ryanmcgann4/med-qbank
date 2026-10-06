@@ -83,4 +83,17 @@ describe('progress + statuses', () => {
     expect(hasStatus(p, 'due', addDays(NOW, 1))).toBe(true);
     expect(hasStatus(undefined, 'unseen', NOW)).toBe(true);
   });
+
+  it('a correct answer after opening the hint comes back tomorrow, even if marked Sure', () => {
+    const box3 = { box: 3, dueAt: NOW - 1, lastReviewedAt: NOW - 1 };
+    const p = applyAttempt({ ...applyAttempt(undefined, 'q', { correct: true, confidence: 'sure', ts: NOW - 1 }), srs: box3 }, 'q', {
+      correct: true,
+      confidence: 'sure',
+      ts: NOW,
+      hinted: true,
+    });
+    expect(p.srs!.box).toBe(1);
+    expect(wait(p.srs!)).toBe(1);
+    expect(p.lastConfidence).toBe('sure');
+  });
 });

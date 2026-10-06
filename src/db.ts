@@ -103,6 +103,8 @@ export interface Attempt {
   timeMs: number;
   mode: QuizMode;
   sessionId: string;
+  /** Looked at the explanation before answering; a correct answer then schedules like a guess. */
+  hinted?: boolean;
 }
 
 export type QuizMode = 'smart' | 'unseen' | 'missed' | 'weekly' | 'exam' | 'custom';
@@ -150,6 +152,8 @@ export interface SessionAnswer {
   struck: string[];
   submitted: boolean;
   correct: boolean | null;
+  /** Opened the hint (the explanation) before answering. */
+  hinted?: boolean;
 }
 
 export interface QuizSession {

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Flag, Keyboard, NotebookPen, Timer, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState, type RefObject, type TouchEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { QuestionTools, NoteModal } from '../components/QuestionTools';
 import { CONFIDENCE_LABEL, QuestionView } from '../components/QuestionView';
@@ -14,6 +14,20 @@ const CONFIDENCES: { c: Confidence; key: string; tone: string }[] = [
   { c: 'unsure', key: 'U', tone: 'bg-amber-500 hover:bg-amber-400 text-white' },
   { c: 'guess', key: 'G', tone: 'bg-slate-600 hover:bg-slate-500 text-white' },
 ];
+
+/** Ignore touches that start this close to the screen edge (Safari's back gesture lives there). */
+const EDGE_PX = 24;
+
+interface Clock {
+  elapsedMs: number;
+  /** Time on each question, by index. */
+  perQ: number[];
+}
+
+/** Fold the running clock into the session for saving. */
+function withTime(s: QuizSession, c: Clock | null): QuizSession {
+  return c ? { ...s, elapsedMs: c.elapsedMs, answers: s.answers.map((a, i) => ({ ...a, timeMs: c.perQ[i] ?? a.timeMs })) } : s;
+}
 
 interface Loaded {
   questions: Map<string, StoredQuestion>;
@@ -29,7 +43,12 @@ export function QuizPage() {
   const [endOpen, setEndOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [nudge, setNudge] = useState(false);
+  const [dir, setDir] = useState<'next' | 'prev'>('next');
   const latest = useRef<QuizSession | null>(null);
+  // Time lives outside React state, so the clock ticking doesn't re-render the question every second.
+  const clock = useRef<Clock | null>(null);
+  const finishing = useRef(false);
+  const swipe = useRef<{ x: number; y: number; t: number } | null>(null);
 
   // Load the session once; after that this component owns it and persists changes.
   useEffect(() => {
@@ -39,6 +58,7 @@ export function QuizPage() {
       if (cancelled) return;
       if (!s) return setMissing(true);
       if (s.finishedAt) return navigate(`/quiz/${s.id}/review`, { replace: true });
+      clock.current = { elapsedMs: s.elapsedMs, perQ: s.answers.map((a) => a.timeMs) };
       setSession(s);
     })();
     return () => {
@@ -61,51 +81,41 @@ export function QuizPage() {
     return new Map(rows.filter((p) => !!p).map((p) => [p!.qid, p!]));
   }, [qids]);
 
-  // Persist (debounced) and flush on leave.
+  // Persist (debounced) after each change, and right away when leaving the page or the app.
   useEffect(() => {
     latest.current = session;
     if (!session) return;
-    const t = setTimeout(() => void db.sessions.put(session), 400);
+    const t = setTimeout(() => void db.sessions.put(withTime(session, clock.current)), 400);
     return () => clearTimeout(t);
   }, [session]);
-  useEffect(
-    () => () => {
-      if (latest.current) void db.sessions.put(latest.current);
-    },
-    [],
-  );
-
-  // Clock: total time, plus per-question time (until answered in tutor mode).
-  const running = !!session && !session.finishedAt;
   useEffect(() => {
-    if (!running) return;
-    let last = performance.now();
-    const t = setInterval(() => {
-      const now = performance.now();
-      const delta = now - last;
-      last = now;
-      if (document.hidden) return;
-      setSession((s) => {
-        if (!s || s.finishedAt) return s;
-        const a = s.answers[s.current];
-        const counting = s.timed || !a.submitted;
-        return {
-          ...s,
-          elapsedMs: s.elapsedMs + delta,
-          answers: counting ? s.answers.map((x, i) => (i === s.current ? { ...x, timeMs: x.timeMs + delta } : x)) : s.answers,
-        };
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, [running]);
+    const flush = () => {
+      const s = latest.current;
+      if (s && !s.finishedAt && !finishing.current) void db.sessions.put(withTime(s, clock.current));
+    };
+    const onHide = () => document.visibilityState === 'hidden' && flush();
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      flush();
+    };
+  }, []);
 
   const patchAnswer = useCallback((i: number, patch: Partial<SessionAnswer>) => {
     setSession((s) => (s ? { ...s, answers: s.answers.map((a, j) => (j === i ? { ...a, ...patch } : a)) } : s));
   }, []);
 
+  // "Select an answer" flashes when you try to go on without one.
+  const remind = useCallback(() => {
+    setNudge(true);
+    setTimeout(() => setNudge(false), 900);
+  }, []);
+
   const finish = useCallback(async () => {
-    const s = latest.current;
-    if (!s || !data || s.finishedAt) return;
+    const s0 = latest.current;
+    if (!s0 || !data || s0.finishedAt || finishing.current) return;
+    finishing.current = true;
+    const s = withTime(s0, clock.current);
     const now = Date.now();
     let answers = s.answers;
     if (s.timed) {
@@ -130,10 +140,28 @@ export function QuizPage() {
     navigate(`/quiz/${s.id}/review`, { replace: true });
   }, [data, navigate]);
 
-  // Exam time limit.
+  // Clock: total time, plus per-question time (until answered in tutor mode). Ends an exam block at its time limit.
+  const finishRef = useRef(finish);
   useEffect(() => {
-    if (session?.timed && session.timeLimitMs && !session.finishedAt && session.elapsedMs >= session.timeLimitMs) void finish();
-  }, [session?.elapsedMs, session?.timed, session?.timeLimitMs, session?.finishedAt, finish]);
+    finishRef.current = finish;
+  }, [finish]);
+  const running = !!session && !session.finishedAt;
+  useEffect(() => {
+    if (!running) return;
+    let last = performance.now();
+    const t = setInterval(() => {
+      const now = performance.now();
+      const delta = now - last;
+      last = now;
+      const s = latest.current;
+      const c = clock.current;
+      if (document.hidden || !s || !c || s.finishedAt) return;
+      c.elapsedMs += delta;
+      if (s.timed || !s.answers[s.current].submitted) c.perQ[s.current] = (c.perQ[s.current] ?? 0) + delta;
+      if (s.timed && s.timeLimitMs && c.elapsedMs >= s.timeLimitMs) void finishRef.current();
+    }, 1000);
+    return () => clearInterval(t);
+  }, [running]);
 
   const s = session;
   const i = s?.current ?? 0;
@@ -161,18 +189,24 @@ export function QuizPage() {
         return;
       }
       if (answer.submitted) return;
-      if (!answer.chosen) {
-        setNudge(true);
-        setTimeout(() => setNudge(false), 900);
-        return;
-      }
+      if (!answer.chosen) return remind();
       const correct = answer.chosen === q.correct_option;
       patchAnswer(i, { confidence: c, submitted: true, correct });
       void recordAttempts([
-        { qid: item.qid, ts: Date.now(), chosen: answer.chosen, correct, confidence: c, timeMs: Math.round(answer.timeMs), mode: s.mode, sessionId: s.id },
+        {
+          qid: item.qid,
+          ts: Date.now(),
+          chosen: answer.chosen,
+          correct,
+          confidence: c,
+          timeMs: Math.round(clock.current?.perQ[i] ?? answer.timeMs),
+          mode: s.mode,
+          sessionId: s.id,
+          ...(answer.hinted ? { hinted: true } : {}),
+        },
       ]);
     },
-    [s, answer, q, item, i, patchAnswer],
+    [s, answer, q, item, i, patchAnswer, remind],
   );
 
   // Choosing the already-selected answer again (second tap, double-click, or the same key)
@@ -190,7 +224,19 @@ export function QuizPage() {
     [s, answer, revealed, i, patchAnswer, confide],
   );
 
-  const goto = useCallback((j: number) => setSession((x) => (x ? { ...x, current: Math.max(0, Math.min(x.items.length - 1, j)) } : x)), []);
+  const goto = useCallback(
+    (j: number) => {
+      if (!s || j < 0 || j >= s.items.length || j === i) return;
+      setDir(j < i ? 'prev' : 'next');
+      setSession((x) => (x ? { ...x, current: j } : x));
+    },
+    [s, i],
+  );
+
+  // Each question starts at the top, not wherever you'd scrolled to on the last one's explanation.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [i]);
 
   const next = useCallback(() => {
     if (!s) return;
@@ -206,6 +252,31 @@ export function QuizPage() {
   }, [item, p]);
 
   const openNote = useCallback(() => setNoteOpen(true), []);
+
+  const showHint = useCallback(() => {
+    if (s && !s.timed && answer && !answer.submitted) patchAnswer(i, { hinted: true });
+  }, [s, answer, i, patchAnswer]);
+
+  // Phones: swipe left for the next question (once answered), right for the previous one.
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    swipe.current = e.touches.length === 1 && t.clientX > EDGE_PX && t.clientX < window.innerWidth - EDGE_PX ? { x: t.clientX, y: t.clientY, t: Date.now() } : null;
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const start = swipe.current;
+    swipe.current = null;
+    if (!start || !s || noteOpen || endOpen || helpOpen) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Date.now() - start.t > 600 || Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    if (window.getSelection()?.toString()) return; // selecting text, not swiping
+    if (dx > 0) return goto(i - 1);
+    // Swiping never ends the quiz; that stays a deliberate tap.
+    if (isLast) return;
+    if (s.timed || answer?.submitted) goto(i + 1);
+    else remind();
+  };
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -228,6 +299,7 @@ export function QuizPage() {
         next();
       } else if (k === 'f') toggleFlag();
       else if (k === 'n') openNote();
+      else if (k === 'h') showHint();
       else if (k === 'arrowright' && (s.timed || answer?.submitted)) next();
       else if (k === 'arrowleft') goto(i - 1);
       else if (k === '?') setHelpOpen(true);
@@ -236,7 +308,7 @@ export function QuizPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, goto]);
+  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, goto]);
 
   if (missing) {
     return (
@@ -249,7 +321,6 @@ export function QuizPage() {
   if (!s || !data || !item || !answer) return null;
 
   const answeredCount = s.answers.filter((a) => (s.timed ? a.chosen !== null : a.submitted)).length;
-  const remaining = s.timeLimitMs ? Math.max(0, s.timeLimitMs - s.elapsedMs) : null;
   const unanswered = s.items.length - answeredCount;
 
   return (
@@ -261,16 +332,7 @@ export function QuizPage() {
             {i + 1} / {s.items.length}
           </span>
           <span className="hidden truncate text-sm text-slate-500 sm:inline">· {s.title}</span>
-          <span
-            className={cn(
-              'ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm tabular-nums',
-              remaining !== null && remaining < 5 * 60_000 ? 'bg-rose-100 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400',
-            )}
-            title={remaining !== null ? 'Time remaining in block' : 'Time elapsed'}
-          >
-            <Timer className="h-4 w-4" />
-            {formatDuration(remaining ?? s.elapsedMs)}
-          </span>
+          <ClockDisplay clock={clock} limitMs={s.timeLimitMs} />
           <button
             type="button"
             onClick={toggleFlag}
@@ -336,18 +398,21 @@ export function QuizPage() {
       )}
 
       {q ? (
-        <QuestionView
-          question={q}
-          lecture={data.lectures.get(q.lecture_id)}
-          order={item.order}
-          answer={answer}
-          revealed={revealed}
-          interactive={!revealed}
-          onSelect={select}
-          onToggleStrike={toggleStrike}
-          footer={<QuestionTools question={q} tools={['edit', 'report', 'archive']} />}
-          scrollOnReveal
-        />
+        <div key={i} className={dir === 'next' ? 'q-in-next' : 'q-in-prev'} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          <QuestionView
+            question={q}
+            lecture={data.lectures.get(q.lecture_id)}
+            order={item.order}
+            answer={answer}
+            revealed={revealed}
+            interactive={!revealed}
+            onSelect={select}
+            onToggleStrike={toggleStrike}
+            onHint={s.timed ? undefined : showHint}
+            footer={<QuestionTools question={q} tools={['edit', 'report', 'archive']} />}
+            scrollOnReveal
+          />
+        </div>
       ) : (
         <p className="rounded-lg bg-amber-50 p-4 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
           This question was removed from your bank. <Button variant="ghost" onClick={() => goto(i + 1)}>Skip</Button>
@@ -487,6 +552,12 @@ export function QuizPage() {
           <dt><Kbd>←</Kbd></dt><dd>Previous question</dd>
           <dt><Kbd>F</Kbd></dt><dd>Flag / unflag</dd>
           <dt><Kbd>N</Kbd></dt><dd>Add a note</dd>
+          {!s.timed && (
+            <>
+              <dt><Kbd>H</Kbd></dt><dd>Show the hint (the explanation); a right answer then comes back tomorrow</dd>
+            </>
+          )}
+          <dt>Swipe left / right</dt><dd>Next / previous question (phones)</dd>
           <dt>Right-click / long-press</dt><dd>Cross out an answer</dd>
         </dl>
         <div className="mt-4 flex justify-end">
@@ -496,5 +567,28 @@ export function QuizPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** The header clock. Re-renders itself once a second instead of the whole quiz. */
+function ClockDisplay({ clock, limitMs }: { clock: RefObject<Clock | null>; limitMs: number | null }) {
+  const [, tick] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
+  const elapsed = clock.current?.elapsedMs ?? 0;
+  const remaining = limitMs ? Math.max(0, limitMs - elapsed) : null;
+  return (
+    <span
+      className={cn(
+        'ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm tabular-nums',
+        remaining !== null && remaining < 5 * 60_000 ? 'bg-rose-100 font-semibold text-rose-700 dark:bg-rose-950 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400',
+      )}
+      title={remaining !== null ? 'Time remaining in block' : 'Time elapsed'}
+    >
+      <Timer className="h-4 w-4" />
+      {formatDuration(remaining ?? elapsed)}
+    </span>
   );
 }

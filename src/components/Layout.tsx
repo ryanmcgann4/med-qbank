@@ -1,5 +1,5 @@
 import { BarChart3, BookOpenCheck, Database, Home, Library, Monitor, Moon, PlusCircle, Sun } from 'lucide-react';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { BackupBanner } from './BackupBanner';
 import { SyncIndicator } from './SyncIndicator';
@@ -26,6 +26,8 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh">
+      {/* New pages open at the top; Back returns to where you were. */}
+      <ScrollRestoration />
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-950/85">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4">
           <NavLink to="/" className="flex items-center gap-2 font-semibold tracking-tight">

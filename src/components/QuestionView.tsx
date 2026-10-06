@@ -1,4 +1,4 @@
-import { Lightbulb, BookOpen } from 'lucide-react';
+import { Lightbulb, BookOpen, Eye } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { Confidence, SessionAnswer, StoredLecture, StoredQuestion } from '../db';
 import { letter } from '../lib/selection';
@@ -24,17 +24,25 @@ interface Props {
   footer?: ReactNode;
   /** In a live quiz: bring the result banner into view when the answer is revealed. */
   scrollOnReveal?: boolean;
+  /** Tutor quiz: offer a hint (the explanation) before answering. */
+  onHint?: () => void;
 }
 
-export function QuestionView({ question: q, lecture, order, answer, revealed, interactive, onSelect, onToggleStrike, browse, footer, scrollOnReveal }: Props) {
+export function QuestionView({ question: q, lecture, order, answer, revealed, interactive, onSelect, onToggleStrike, browse, footer, scrollOnReveal, onHint }: Props) {
   const byId = new Map(q.options.map((o) => [o.id, o]));
   const correctLetter = letter(order.indexOf(q.correct_option));
   const chosenLetter = answer.chosen ? letter(order.indexOf(answer.chosen)) : null;
   const bannerRef = useRef<HTMLDivElement>(null);
+  const hintRef = useRef<HTMLElement>(null);
+  const hintOpen = !revealed && !!answer.hinted;
 
   useEffect(() => {
     if (revealed && scrollOnReveal) bannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [revealed, scrollOnReveal]);
+
+  useEffect(() => {
+    if (hintOpen) hintRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [hintOpen]);
 
   return (
     <div>
@@ -69,7 +77,9 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
           {!browse && answer.confidence && (
             <span className="mt-0.5 block text-sm font-normal opacity-80">
               You marked: {CONFIDENCE_LABEL[answer.confidence]}
-              {answer.correct && answer.confidence === 'guess' && ' — lucky guess, this will come back tomorrow'}
+              {answer.hinted
+                ? ` · used the hint${answer.correct ? ', so this will come back tomorrow' : ''}`
+                : answer.correct && answer.confidence === 'guess' && ' — lucky guess, this will come back tomorrow'}
             </span>
           )}
         </div>
@@ -96,6 +106,28 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
         })}
       </div>
 
+      {!revealed && (
+        <div className="mt-5 space-y-3">
+          {hintOpen ? (
+            <section ref={hintRef} className="scroll-mt-32 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/60 dark:bg-sky-950/30">
+              <h3 className="mb-1.5 text-sm font-semibold uppercase tracking-wide text-sky-800 dark:text-sky-300">Hint</h3>
+              <p className="whitespace-pre-line leading-relaxed">{q.explanation}</p>
+            </section>
+          ) : (
+            onHint && (
+              <button
+                type="button"
+                onClick={onHint}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-sky-700 ring-1 ring-inset ring-sky-200 hover:bg-sky-50 dark:text-sky-300 dark:ring-sky-900 dark:hover:bg-sky-950/40"
+              >
+                <Eye className="h-4 w-4" /> Show hint <span className="hidden font-normal opacity-70 sm:inline">(H)</span>
+              </button>
+            )
+          )}
+          <SourceCard question={q} lecture={lecture} />
+        </div>
+      )}
+
       {revealed && (
         <div className="mt-6 space-y-4">
           <section>
@@ -111,20 +143,7 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
             </div>
           </div>
 
-          <div className="flex gap-3 rounded-xl bg-slate-100 p-4 text-sm dark:bg-slate-800/60">
-            <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
-            <div className="space-y-0.5">
-              <div>
-                <span className="font-semibold">{lecture?.title ?? q.lecture_id}</span>
-                {lecture?.lecturer && <span className="text-slate-600 dark:text-slate-400"> · {lecture.lecturer}</span>}
-              </div>
-              <div className="text-slate-700 dark:text-slate-300">
-                Slides {q.source.slides}
-                {lecture && ` · ${lecture.day_label}`}
-              </div>
-              {q.source.objective && <div className="text-slate-600 dark:text-slate-400">Objective: {q.source.objective}</div>}
-            </div>
-          </div>
+          <SourceCard question={q} lecture={lecture} />
 
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="indigo">{QUESTION_TYPE_LABELS[q.type]}</Badge>
@@ -141,6 +160,26 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
           {footer}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Where the question comes from in the slides. */
+function SourceCard({ question: q, lecture }: { question: StoredQuestion; lecture?: StoredLecture }) {
+  return (
+    <div className="flex gap-3 rounded-xl bg-slate-100 p-4 text-sm dark:bg-slate-800/60">
+      <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+      <div className="space-y-0.5">
+        <div>
+          <span className="font-semibold">{lecture?.title ?? q.lecture_id}</span>
+          {lecture?.lecturer && <span className="text-slate-600 dark:text-slate-400"> · {lecture.lecturer}</span>}
+        </div>
+        <div className="text-slate-700 dark:text-slate-300">
+          Slides {q.source.slides}
+          {lecture && ` · ${lecture.day_label}`}
+        </div>
+        {q.source.objective && <div className="text-slate-600 dark:text-slate-400">Objective: {q.source.objective}</div>}
+      </div>
     </div>
   );
 }
@@ -171,6 +210,7 @@ function OptionButton({
   // Long-press (touch) or right-click toggles strikethrough, like UWorld.
   const timer = useRef<number | null>(null);
   const fired = useRef(false);
+  const start = useRef({ x: 0, y: 0 });
   const clear = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
@@ -190,7 +230,12 @@ function OptionButton({
       aria-disabled={!interactive}
       onPointerDown={(e) => {
         fired.current = false;
+        start.current = { x: e.clientX, y: e.clientY };
         if (interactive && e.pointerType !== 'mouse') timer.current = window.setTimeout(strike, 450);
+      }}
+      onPointerMove={(e) => {
+        // A finger that moves is scrolling or swiping, not long-pressing.
+        if (timer.current !== null && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 10) clear();
       }}
       onPointerUp={clear}
       onPointerLeave={clear}

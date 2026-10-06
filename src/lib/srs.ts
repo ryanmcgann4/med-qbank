@@ -6,6 +6,7 @@
  *
  *   ❌ Wrong            → box 1, back tomorrow
  *   ✅ Correct + Guess  → box 1, back tomorrow (a lucky guess isn't knowledge)
+ *                         (so is any answer given after opening the hint)
  *   ✅ Correct + Unsure → stay in the same box, wait HALF that box's interval
  *   ✅ Correct + Sure   → move up one box, wait the new box's interval
  *                         (answering before it's due doesn't promote; it just

@@ -21,7 +21,7 @@ export function emptyProgress(qid: string): Progress {
 export function applyAttempt(
   prev: Progress | undefined,
   qid: string,
-  a: { correct: boolean; confidence: Confidence | null; ts: number },
+  a: { correct: boolean; confidence: Confidence | null; ts: number; hinted?: boolean },
 ): Progress {
   const p = prev ?? emptyProgress(qid);
   return {
@@ -32,6 +32,7 @@ export function applyAttempt(
     lastResult: a.correct ? 'correct' : 'wrong',
     lastConfidence: a.confidence,
     streak: a.correct ? p.streak + 1 : 0,
-    srs: schedule(p.srs, a.correct, a.confidence, a.ts),
+    // Getting it right after reading the explanation isn't recall, so it comes back tomorrow like a guess.
+    srs: schedule(p.srs, a.correct, a.hinted ? 'guess' : a.confidence, a.ts),
   };
 }

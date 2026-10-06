@@ -112,9 +112,15 @@ the original option ids, so the display letters don't matter. Questions you got
 right in the last *N* days (default 3) are skipped unless they're due.
 
 **Keyboard:** `1`–`5` / `A`–`E` select · `S` / `U` / `G` = Sure / Unsure / Guess
-(submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `?` help.
+(submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `H` hint · `?` help.
+On a phone, swipe left for the next question (once you've answered) and right for the previous one.
 Tap, click, or press the key for the answer you already selected (or double-click it)
 to lock it in as **Sure**. Right-click or long-press an answer to cross it out.
+
+Every question shows where it comes from (lecture, slides, objective) before you
+answer, so you know which part of the deck to look at. In tutor mode, **Show hint**
+opens the explanation before you answer. A correct answer after the hint is
+scheduled like a guess, so it comes back tomorrow. Exam simulation has no hints.
 
 After a quiz: score, time, confidence check, every question re-openable, and
 one-click **Re-quiz my misses**. Ending a tutor quiz early scores only what you
@@ -147,7 +153,7 @@ Leitner boxes (`src/lib/srs.ts`):
 | Wait (days) | 1 | 3 | 7 | 14 | 30 | 60 |
 
 - ❌ Wrong → box 1, back tomorrow
-- ✅ Correct + Guess → box 1, back tomorrow
+- ✅ Correct + Guess → box 1, back tomorrow (so is any correct answer after opening the hint)
 - ✅ Correct + Unsure → same box, half its wait
 - ✅ Correct + Sure → up one box (only if it was due; early reviews don't promote)
 
