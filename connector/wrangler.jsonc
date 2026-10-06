@@ -5,7 +5,7 @@
   "compatibility_date": "2025-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Stores OAuth clients and tokens. Create with: npx wrangler kv namespace create OAUTH_KV
-  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "REPLACE_WITH_KV_ID" }],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "4b2e4c7797ac4ded9a669db735878b49" }],
   "vars": {
     "REPO": "ryanmcgann4/qbank-data",
     "BRANCH": "main",
