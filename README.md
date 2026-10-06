@@ -167,14 +167,18 @@ answers in a row. The home screen shows how many are due today.
   volume, calibration (accuracy when Sure / Unsure / Guess vs. 20% chance),
   accuracy by week, and sortable tables by lecture and tag. Every chart has a
   table view.
-- **Library:** folders you control. Imports are filed automatically under
+- **Library:** folders you control, all on one page. Tap a folder's arrow to
+  expand or collapse it in place (the app remembers which are open), or use
+  **Expand all** / **Collapse all**. Each folder has a ▶ button to quiz
+  everything inside and a ⋯ menu (new subfolder, rename, move, delete).
+  **Select** puts checkboxes on lectures and folders for bulk quiz, move,
+  archive, or delete. Imports are filed automatically under
   Course › Week › Day, and those are ordinary folders: rename them, add folders
   and subfolders, and **Move** lectures or folders anywhere. Rename a lecture
   from its page (**Reset** restores the imported name). Renames and placement
   survive re-importing a day and sync between devices. Deleting a folder either
-  moves its contents up a level or deletes them with their questions. **Quiz
-  this folder** quizzes everything inside, and the quiz builder has a Folders
-  filter. Each lecture page shows summaries and objectives. Each
+  moves its contents up a level or deletes them with their questions. The quiz
+  builder has a Folders filter too. Each lecture page shows summaries and objectives. Each
   objective shows how many questions cite it, so gaps in Claude's coverage
   stand out. Full-text search covers stems, answers, explanations, tags, and
   lectures. Every question shows its answer history and next review date.
@@ -211,6 +215,10 @@ Setup, once:
    **Connect & sync**.
 4. On each other device, use **Copy setup code** on the first device, send it to
    yourself (AirDrop/Notes), and paste it under *Already set up on another device?*
+
+A sync only re-reads the parts of your bank that changed since the last one
+(and does nothing but a quick check when nothing did), and pulling changes
+writes only the rows that differ, so syncing stays quick as the bank grows.
 
 How merging works: answers from every device are combined and progress is
 recalculated from the combined history. Edits, flags, and notes go newest-first,

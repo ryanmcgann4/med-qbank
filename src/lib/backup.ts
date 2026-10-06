@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { db as defaultDb, type QBankDB } from '../db';
 import { todayISO } from './dates';
-import { isDeviceKey, mergeData, type BackupData } from './merge';
+import { attemptKey, importKey, isDeviceKey, mergeData, type BackupData } from './merge';
+import { stableStringify } from './sync/shards';
 import { downloadText } from './download';
 
 export { mergeData, type BackupData };
@@ -98,16 +99,78 @@ async function replaceAll(data: BackupData, database: QBankDB) {
   });
 }
 
+export type TableName = keyof BackupData;
+
+/**
+ * Write only the rows that differ between `current` (as read from the
+ * database) and `merged`, so a sync that pulls one day of answers doesn't
+ * rewrite the whole bank. Returns the tables that changed.
+ */
+async function writeChanges(current: BackupData, merged: BackupData, database: QBankDB): Promise<Set<TableName>> {
+  const changed = new Set<TableName>();
+  const same = (a: unknown, b: unknown) => stableStringify(a) === stableStringify(b);
+
+  // Tables keyed by a field of the row.
+  const keyed = async <T, K extends string>(name: TableName, table: { bulkPut(rows: NoInfer<T>[]): Promise<unknown>; bulkDelete(keys: K[]): Promise<unknown> }, cur: T[], next: T[], key: (t: T) => K) => {
+    const before = new Map(cur.map((r) => [key(r), r]));
+    const puts = next.filter((r) => !before.has(key(r)) || !same(before.get(key(r)), r));
+    const keep = new Set(next.map(key));
+    const dels = [...before.keys()].filter((k) => !keep.has(k));
+    if (puts.length) await table.bulkPut(puts);
+    if (dels.length) await table.bulkDelete(dels);
+    if (puts.length || dels.length) changed.add(name);
+  };
+  // Auto-increment tables: rows are matched by content key, and an existing row keeps its id.
+  const counted = async <T extends { id?: number }>(name: TableName, table: { bulkPut(rows: NoInfer<T>[]): Promise<unknown>; bulkDelete(keys: number[]): Promise<unknown> }, cur: T[], next: T[], key: (t: T) => string) => {
+    const before = new Map<string, T>();
+    const dels: number[] = [];
+    for (const r of cur) {
+      if (before.has(key(r))) dels.push(r.id!);
+      else before.set(key(r), r);
+    }
+    const puts: T[] = [];
+    const keep = new Set<string>();
+    for (const r of next) {
+      const k = key(r);
+      keep.add(k);
+      const mine = before.get(k);
+      if (!mine) puts.push(r);
+      else if (!same({ ...mine, id: undefined }, { ...r, id: undefined })) puts.push({ ...r, id: mine.id });
+    }
+    for (const [k, r] of before) if (!keep.has(k)) dels.push(r.id!);
+    if (puts.length) await table.bulkPut(puts);
+    if (dels.length) await table.bulkDelete(dels);
+    if (puts.length || dels.length) changed.add(name);
+  };
+
+  await keyed('questions', database.questions, current.questions, merged.questions, (q) => q.qid);
+  await keyed('lectures', database.lectures, current.lectures, merged.lectures, (l) => l.lecture_id);
+  await keyed('progress', database.progress, current.progress, merged.progress, (p) => p.qid);
+  await keyed('sessions', database.sessions, current.sessions, merged.sessions, (x) => x.id);
+  await keyed('kv', database.kv, current.kv, merged.kv, (k) => k.key);
+  await keyed('deletions', database.deletions, current.deletions ?? [], merged.deletions ?? [], (d) => d.id);
+  await keyed('exams', database.exams, current.exams ?? [], merged.exams ?? [], (e) => e.id);
+  await keyed('folders', database.folders, current.folders ?? [], merged.folders ?? [], (f) => f.id);
+  await counted('attempts', database.attempts, current.attempts, merged.attempts, attemptKey);
+  await counted('imports', database.imports, current.imports, merged.imports, importKey);
+  return changed;
+}
+
 /**
  * Merge `incoming` into the database atomically: the read, merge and write
  * happen in one transaction, so an answer recorded meanwhile can't be lost.
+ * Only rows that actually changed are written.
  */
-export async function mergeInto(incoming: BackupData, database: QBankDB = defaultDb): Promise<BackupData> {
+export async function mergeIntoChanged(incoming: BackupData, database: QBankDB = defaultDb): Promise<{ merged: BackupData; changed: Set<TableName> }> {
   return database.transaction('rw', allTables(database), async () => {
-    const merged = mergeData(await readAll(database), incoming);
-    await replaceAll(merged, database);
-    return merged;
+    const current = await readAll(database);
+    const merged = mergeData(current, incoming);
+    return { merged, changed: await writeChanges(current, merged, database) };
   });
+}
+
+export async function mergeInto(incoming: BackupData, database: QBankDB = defaultDb): Promise<BackupData> {
+  return (await mergeIntoChanged(incoming, database)).merged;
 }
 
 export async function restoreBackup(file: BackupData, mode: 'replace' | 'merge', database: QBankDB = defaultDb): Promise<BackupData> {

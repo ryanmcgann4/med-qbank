@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { QBankDB } from '../../db';
 import { sampleText } from '../../test/fixtures';
 import { readAll } from '../backup';
@@ -68,6 +68,15 @@ class FakeRepo implements RepoClient {
   }
   files() {
     return [...this.trees.get(this.commits.get(this.head)!.tree)!.keys()].sort();
+  }
+  sha(path: string) {
+    return this.trees.get(this.commits.get(this.head)!.tree)!.get(path);
+  }
+  /** Commit a file as if another tool (e.g. the Claude connector) wrote it. */
+  async write(path: string, content: string) {
+    const sha = await this.createBlob(content);
+    const tree = await this.createTree(this.commits.get(this.head)!.tree, [{ path, sha }]);
+    await this.updateRef(await this.createCommit('outside edit', tree, this.head));
   }
 }
 
@@ -250,5 +259,52 @@ describe('two devices syncing through one repo', () => {
     await syncOnce(repo, phone);
     expect(await loadCandidates(phone)).toHaveLength(10);
   });
-});
 
+  it('re-reads only the tables written since the last sync, and nothing when nothing changed', async () => {
+    await applyImport(await planImport([{ name: 's', text: sampleText() }], laptop), {}, laptop);
+    await syncOnce(repo, laptop);
+    const reads = vi.spyOn(laptop, 'table');
+
+    expect((await syncOnce(repo, laptop)).commit).toBeNull();
+    expect(reads).not.toHaveBeenCalled();
+
+    await recordAttempts([answer(Q1, T, true, 'laptop')], laptop);
+    const r = await syncOnce(repo, laptop);
+    expect(r.commit).not.toBeNull();
+    expect(new Set(reads.mock.calls.map(([t]) => t))).toEqual(new Set(['attempts', 'progress']));
+
+    await syncOnce(repo, phone);
+    expect(await phone.progress.get(Q1)).toMatchObject({ timesSeen: 1, timesCorrect: 1 });
+  });
+
+  it('rewrites a remote file that was reformatted outside the app, even though the data is the same', async () => {
+    await applyImport(await planImport([{ name: 's', text: sampleText() }], laptop), {}, laptop);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, laptop); // warm the cache
+    const original = repo.sha('lectures.json');
+    const blob = repo.blobs.get(original!)!;
+    await repo.write('lectures.json', JSON.stringify(JSON.parse(blob), null, 2));
+    expect(repo.sha('lectures.json')).not.toBe(original);
+
+    const r = await syncOnce(repo, laptop);
+    expect(r.pushed).toBe(1);
+    expect(repo.sha('lectures.json')).toBe(original);
+  });
+
+  it('pulling only writes what changed: existing answers keep their rows', async () => {
+    await applyImport(await planImport([{ name: 's', text: sampleText() }], laptop), {}, laptop);
+    await recordAttempts([answer(Q1, T, false, 'laptop')], laptop);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+    const [mine] = await phone.attempts.toArray();
+
+    await recordAttempts([answer(Q2, T + 1000, true, 'laptop')], laptop);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+
+    const after = await phone.attempts.toArray();
+    expect(after).toHaveLength(2);
+    expect(after.find((a) => a.qid === Q1)?.id).toBe(mine.id);
+    expect(await phone.progress.get(Q2)).toMatchObject({ timesSeen: 1, timesCorrect: 1 });
+  });
+});

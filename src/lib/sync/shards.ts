@@ -37,8 +37,25 @@ const by = <T>(key: (t: T) => string | number) => (a: T, b: T) => (key(a) < key(
 
 function group<T>(items: readonly T[], key: (t: T) => string): Map<string, T[]> {
   const m = new Map<string, T[]>();
-  for (const it of items) m.set(key(it), [...(m.get(key(it)) ?? []), it]);
+  for (const it of items) {
+    const k = key(it);
+    const list = m.get(k);
+    if (list) list.push(it);
+    else m.set(k, [it]);
+  }
   return m;
+}
+
+/** The tables shard files are built from. Each file comes from exactly one of them. */
+export const SHARD_TABLES = ['questions', 'lectures', 'progress', 'attempts', 'sessions', 'imports', 'deletions', 'exams', 'folders'] as const;
+export type ShardTable = (typeof SHARD_TABLES)[number];
+
+/** Which table a shard file is built from. */
+export function tableOf(path: string): ShardTable {
+  if (path === 'progress-meta.json') return 'progress';
+  const top = path.split('/')[0].replace(/\.json$/, '');
+  if ((SHARD_TABLES as readonly string[]).includes(top)) return top as ShardTable;
+  throw new Error(`Not a shard file: ${path}`);
 }
 
 export function toShards(data: BackupData): Map<string, string> {

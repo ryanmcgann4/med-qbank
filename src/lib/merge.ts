@@ -18,7 +18,10 @@ export interface BackupData {
 /** Device-local keys (sync bookkeeping) never leave this browser in a backup. */
 export const isDeviceKey = (key: string) => key.startsWith('sync');
 
-const attemptKey = (a: Attempt) => `${a.qid}|${a.ts}|${a.sessionId}|${a.chosen}`;
+export const importKey = (i: ImportRecord) => `${i.importedAt}|${i.files.map((f) => f.name).join(',')}`;
+
+/** Two attempts with the same key are the same answer (e.g. one copy from each device). */
+export const attemptKey = (a: Attempt) => `${a.qid}|${a.ts}|${a.sessionId}|${a.chosen}`;
 
 type Meta = Pick<Progress, 'flagged' | 'note' | 'report' | 'archived' | 'metaUpdatedAt'>;
 const metaOf = (p: Progress): Meta => ({ flagged: p.flagged, note: p.note, report: p.report, archived: p.archived, metaUpdatedAt: p.metaUpdatedAt });
@@ -116,7 +119,6 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
     if (!mine || (!mine.finishedAt && (s.finishedAt || s.elapsedMs > mine.elapsedMs))) sessions.set(s.id, s);
   }
 
-  const importKey = (i: ImportRecord) => `${i.importedAt}|${i.files.map((f) => f.name).join(',')}`;
   const imports = new Map<string, ImportRecord>();
   for (const i of [...current.imports, ...incoming.imports]) {
     const { id: _id, ...rest } = i;

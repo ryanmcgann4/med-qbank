@@ -2,7 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { FolderInput, Pencil, PlayCircle, Search, Trash2 } from 'lucide-react';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Breadcrumbs, folderUrl, FolderPicker, FolderView, LectureCard, lectureStats, NameModal } from '../components/LibraryFolders';
+import { Breadcrumbs, folderUrl, FolderPicker, FolderTree, LectureCard, lectureStats, NameModal } from '../components/LibraryFolders';
 import { QuestionRow } from '../components/QuestionRow';
 import { Badge, Button, Card, Chip, cn, inputClass, Modal, PageHeader, pct } from '../components/ui';
 import { db, type StoredLecture } from '../db';
@@ -71,7 +71,11 @@ function LibraryIndex({ cands, lectures, tree, folderId }: { cands: Candidate[];
   const index = useMemo(() => new Map(cands.map((c) => [c.q.qid, haystack(c)])), [cands]);
   const byLecture = useMemo(() => {
     const m = new Map<string, Candidate[]>();
-    for (const c of cands) m.set(c.q.lecture_id, [...(m.get(c.q.lecture_id) ?? []), c]);
+    for (const c of cands) {
+      const list = m.get(c.q.lecture_id);
+      if (list) list.push(c);
+      else m.set(c.q.lecture_id, [c]);
+    }
     return m;
   }, [cands]);
 
@@ -143,7 +147,7 @@ function LibraryIndex({ cands, lectures, tree, folderId }: { cands: Candidate[];
         </div>
       ) : (
         <div className="mt-6">
-          <FolderView tree={tree} folderId={folderId} byLecture={byLecture} />
+          <FolderTree tree={tree} focusId={folderId} byLecture={byLecture} />
         </div>
       )}
     </div>
