@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, RefreshCw, Repeat, Trash2, Upload } from 'lucide-react';
+import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, RefreshCw, Repeat, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Card, Chip, cn, Field, inputClass, Modal, PageHeader, SectionTitle } from '../components/ui';
 import { db, getKV, type StatusKey } from '../db';
@@ -10,9 +10,9 @@ import { formatDate, relativeDay, todayISO } from '../lib/dates';
 import { downloadText } from '../lib/download';
 import { emptyFilters, matchesFilters, weekKey } from '../lib/selection';
 import { STATUS_LABELS } from '../lib/status';
-import { useLeechThreshold } from '../hooks/useSettings';
+import { useLeechThreshold, useNewFirst } from '../hooks/useSettings';
 import { useSyncState } from '../hooks/useSync';
-import { LEECH_CHOICES, LEECH_KEY, setSetting } from '../lib/settings';
+import { LEECH_CHOICES, LEECH_KEY, NEW_FIRST_KEY, setSetting } from '../lib/settings';
 import { connect, disconnect, parseSetupCode, setupCode, syncNow } from '../lib/sync/controller';
 
 const ANKI_STATUSES: StatusKey[] = ['missed', 'ever_missed', 'lucky', 'flagged', 'reported', 'mastered'];
@@ -21,6 +21,7 @@ export function DataPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader title="Settings" subtitle="Quiz preferences, sync, backups, and export. Your bank lives in this browser; sync or back up to keep it safe." />
+      <ReviewOrderSection />
       <QuizSettingsSection />
       <SyncSection />
       <BackupSection />
@@ -365,6 +366,31 @@ function AnkiSection() {
           </Button>
           <span className="text-sm text-slate-500">In Anki: File → Import → pick the file. Columns and deck are set automatically.</span>
         </div>
+      </div>
+    </Card>
+  );
+}
+
+function ReviewOrderSection() {
+  const newFirst = useNewFirst();
+  return (
+    <Card className="p-5">
+      <SectionTitle hint="Syncs to your other devices.">
+        <span className="inline-flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-indigo-600" /> New questions before re-reviews
+        </span>
+      </SectionTitle>
+      <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+        While you still have unseen questions, ones you got right last time wait instead of coming back as reviews. Misses still come back first. In the last 7
+        days before an exam, that exam's reviews come back automatically.
+      </p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="New questions before re-reviews">
+        <Chip selected={newFirst} onClick={() => void setSetting(NEW_FIRST_KEY, true)}>
+          On
+        </Chip>
+        <Chip selected={!newFirst} onClick={() => void setSetting(NEW_FIRST_KEY, false)}>
+          Off
+        </Chip>
       </div>
     </Card>
   );

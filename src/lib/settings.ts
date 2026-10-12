@@ -5,6 +5,10 @@ export const LEECH_KEY = 'leechThreshold';
 export const DEFAULT_LEECH = 5;
 export const LEECH_CHOICES = [0, 2, 3, 4, 5, 6, 8, 10, 15] as const;
 
+/** While unseen questions remain, reviews of questions you got right last time wait. Misses still come back first. */
+export const NEW_FIRST_KEY = 'newBeforeRightReviews';
+export const DEFAULT_NEW_FIRST = true;
+
 export async function setSetting(key: string, value: unknown, database: QBankDB = defaultDb): Promise<void> {
   await database.settings.put({ key, value, updatedAt: Date.now() });
 }

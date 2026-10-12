@@ -141,3 +141,30 @@ describe('sessions', () => {
     expect(noShuffle.timeLimitMs).toBeNull();
   });
 });
+
+describe('new questions before re-reviews', () => {
+  const rightDue = cand('right-due', { progress: seen({ lastResult: 'correct', timesCorrect: 1, srs: due() }) });
+  const wrongDue = cand('wrong-due', { progress: seen({ lastResult: 'wrong', srs: due(1) }) });
+  const fresh = [cand('new-1'), cand('new-2')];
+  const pool = [rightDue, wrongDue, ...fresh];
+
+  it('puts questions you got right after the unseen ones, but misses still first', () => {
+    const order = ids(smartOrder(pool, NOW, mulberry32(1), { newFirst: true }));
+    expect(order[0]).toBe('wrong-due');
+    expect(order.slice(1, 3).sort()).toEqual(['new-1', 'new-2']);
+    expect(order[3]).toBe('right-due');
+    // Off: every due review comes first, as before.
+    expect(ids(smartOrder(pool, NOW, mulberry32(1))).slice(0, 2).sort()).toEqual(['right-due', 'wrong-due']);
+  });
+
+  it('released questions (exam within a week) are treated as normal due reviews', () => {
+    const order = ids(smartOrder(pool, NOW, mulberry32(1), { newFirst: true, released: (c) => c.q.qid === 'right-due' }));
+    expect(order.slice(0, 2).sort()).toEqual(['right-due', 'wrong-due']);
+  });
+
+  it('a short quiz with unseen questions left skips them; once nothing is unseen they come back', () => {
+    expect(ids(selectQuestions(pool, cfg({ count: 3 }), NOW, mulberry32(2), { newFirst: true })).sort()).toEqual(['new-1', 'new-2', 'wrong-due']);
+    expect(ids(selectQuestions([rightDue, wrongDue], cfg({ count: 3 }), NOW, mulberry32(2), { newFirst: true })).sort()).toEqual(['right-due', 'wrong-due']);
+  });
+});
+

@@ -166,6 +166,13 @@ Leitner boxes (`src/lib/srs.ts`):
 - ✅ Correct + Unsure → same box, half its wait
 - ✅ Correct + Sure → up one box (only if it was due; early reviews don't promote)
 
+**New questions before re-reviews** (Settings, on by default): while you still
+have unseen questions, a due question you got right last time waits until the
+unseen ones are done. Smart mix serves misses, then new questions, then those
+reviews; the exam plan counts only misses as today's reviews and shows how many
+right answers are waiting. In the last 7 days before an exam, that exam's
+reviews come back automatically (turn the setting off to bring them all back sooner).
+
 **Mastered** means box 4 or higher, which takes three spaced, confident correct
 answers in a row. The home screen shows how many are due today.
 

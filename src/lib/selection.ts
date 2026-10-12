@@ -1,7 +1,7 @@
 import type { Progress, QuizConfig, QuizFilters, QuizMode, QuizSession, StoredLecture, StoredQuestion } from '../db';
 import { DAY_MS } from './dates';
 import { randomId, shuffle, weightedSample, type Rng } from './rng';
-import { accuracy, hasStatus } from './status';
+import { accuracy, hasStatus, isRightReview } from './status';
 
 /** A question joined with its lecture and your progress on it. */
 export interface Candidate {
@@ -72,25 +72,39 @@ export function eligiblePool(cands: readonly Candidate[], config: QuizConfig, no
   return pool;
 }
 
-/** Smart mix priority: due (most overdue first) → missed → unseen → everything else (weakest first). */
-export function smartOrder(pool: readonly Candidate[], now: number, rng: Rng): Candidate[] {
+export interface SelectOptions {
+  /** Reviews of questions you got right last time come after every unseen question. */
+  newFirst?: boolean;
+  /** Questions exempt from `newFirst` (e.g. an exam is less than a week away). */
+  released?: (c: Candidate) => boolean;
+}
+
+/**
+ * Smart mix priority: due (most overdue first) → missed → unseen → everything else (weakest first).
+ * With `newFirst`, due questions you got right last time move to just after the unseen ones.
+ */
+export function smartOrder(pool: readonly Candidate[], now: number, rng: Rng, { newFirst = false, released }: SelectOptions = {}): Candidate[] {
   const due: Candidate[] = [];
+  const dueRight: Candidate[] = [];
   const missed: Candidate[] = [];
   const unseen: Candidate[] = [];
   const rest: Candidate[] = [];
   for (const c of shuffle(pool, rng)) {
-    if (hasStatus(c.progress, 'due', now)) due.push(c);
+    if (newFirst && isRightReview(c.progress, now) && !released?.(c)) dueRight.push(c);
+    else if (hasStatus(c.progress, 'due', now)) due.push(c);
     else if (hasStatus(c.progress, 'missed', now)) missed.push(c);
     else if (hasStatus(c.progress, 'unseen', now)) unseen.push(c);
     else rest.push(c);
   }
-  due.sort((a, b) => a.progress!.srs!.dueAt - b.progress!.srs!.dueAt);
+  const byDue = (a: Candidate, b: Candidate) => a.progress!.srs!.dueAt - b.progress!.srs!.dueAt;
+  due.sort(byDue);
+  dueRight.sort(byDue);
   rest.sort(
     (a, b) =>
       (accuracy(a.progress) ?? 1) - (accuracy(b.progress) ?? 1) ||
       (a.progress?.lastAnsweredAt ?? 0) - (b.progress?.lastAnsweredAt ?? 0),
   );
-  return [...due, ...missed, ...unseen, ...rest];
+  return [...due, ...missed, ...unseen, ...dueRight, ...rest];
 }
 
 /** Accuracy per lecture across the given candidates (only lectures with attempts). */
@@ -124,7 +138,7 @@ export function weaknessWeight(c: Candidate, lectureAcc: ReadonlyMap<string, num
   return w;
 }
 
-export function selectQuestions(cands: readonly Candidate[], config: QuizConfig, now: number, rng: Rng = Math.random): Candidate[] {
+export function selectQuestions(cands: readonly Candidate[], config: QuizConfig, now: number, rng: Rng = Math.random, opts: SelectOptions = {}): Candidate[] {
   if (config.qids?.length) {
     const byId = new Map(cands.map((c) => [c.q.qid, c]));
     const picked = config.qids.map((id) => byId.get(id)).filter((c): c is Candidate => !!c);
@@ -134,7 +148,7 @@ export function selectQuestions(cands: readonly Candidate[], config: QuizConfig,
   const n = Math.max(0, Math.min(config.count, pool.length));
   let picked: Candidate[];
   if (config.mode === 'smart') {
-    picked = smartOrder(pool, now, rng).slice(0, n);
+    picked = smartOrder(pool, now, rng, opts).slice(0, n);
   } else if (config.mode === 'weekly') {
     const la = lectureAccuracy(pool);
     picked = weightedSample(pool, (c) => weaknessWeight(c, la, now), n, rng);

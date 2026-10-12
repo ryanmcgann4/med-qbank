@@ -2,13 +2,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Confidence, Progress, StatusKey, StoredLecture, StoredQuestion } from '../../src/db';
 import { classifyQuestions } from '../../src/lib/dedupe';
-import { planFor, upcoming } from '../../src/lib/exams';
+import { planFor, releasedByExams, upcoming } from '../../src/lib/exams';
 import { contentHash } from '../../src/lib/hash';
 import { autoNames } from '../../src/lib/org';
 import { emptyProgress } from '../../src/lib/progress';
 import { defaultConfig, emptyFilters, selectQuestions, weekKey, type Candidate } from '../../src/lib/selection';
 import { byLecture, byTag, statusCounts, weakest } from '../../src/lib/stats';
-import { statusesOf } from '../../src/lib/status';
+import { DEFAULT_NEW_FIRST, NEW_FIRST_KEY } from '../../src/lib/settings';
+import { isRightReview, statusesOf } from '../../src/lib/status';
 import { validateText } from '../../src/lib/validate';
 import { commitChange, dayIn, snapshot, withProgress, type Env } from './bank';
 
@@ -29,7 +30,10 @@ async function load(env: Env) {
   const progress = new Map(data.progress.map((p) => [p.qid, p]));
   const all: Candidate[] = data.questions.map((q) => ({ q, lecture: lectures.get(q.lecture_id), progress: progress.get(q.qid) }));
   const active = all.filter((c) => !c.progress?.archived);
-  return { snap, data, lectures, all, active, names: autoNames(data.folders ?? []) };
+  // The app's "new questions before re-reviews" setting, so Claude picks questions the same way.
+  const newFirst = (data.settings?.find((x) => x.key === NEW_FIRST_KEY)?.value as boolean | undefined) ?? DEFAULT_NEW_FIRST;
+  const released = releasedByExams(data.exams ?? []);
+  return { snap, data, lectures, all, active, newFirst, released, names: autoNames(data.folders ?? []) };
 }
 
 const preview = (c: Candidate, now: number) => ({
@@ -61,15 +65,17 @@ export function buildServer(env: Env): McpServer {
       annotations: read,
     },
     async () => {
-      const { data, active } = await load(env);
+      const { data, active, newFirst, released } = await load(env);
       const now = Date.now();
       const counts = statusCounts(active, now);
+      const held = newFirst && counts.unseen > 0 ? active.filter((c) => isRightReview(c.progress, now) && !released(c)).length : 0;
       const answers = data.attempts.length;
       const right = data.attempts.filter((a) => a.correct).length;
       const week = data.attempts.filter((a) => a.ts > now - 7 * 864e5);
       return json({
         questions: active.length,
-        due_today: counts.due,
+        due_today: counts.due - held,
+        ...(held ? { right_answers_waiting_for_new_ones: held } : {}),
         unseen: counts.unseen,
         missed_last_time: counts.missed,
         flagged: counts.flagged,
@@ -77,7 +83,7 @@ export function buildServer(env: Env): McpServer {
         overall_accuracy: pct(answers ? right / answers : null),
         last_7_days: { answers: week.length, accuracy: pct(week.length ? week.filter((a) => a.correct).length / week.length : null) },
         upcoming_exams: upcoming(data.exams ?? [], now).map((e) => {
-          const p = planFor(e, active, data.attempts, now);
+          const p = planFor(e, active, data.attempts, now, { newFirst });
           return { name: e.name, date: e.date, days_left: p.daysLeft, today: { new: `${p.newDone}/${p.newTarget}`, reviews: `${p.reviewDone}/${p.reviewTarget}` }, seen: `${p.seen}/${p.total}` };
         }),
         weakest_lectures: weakest(byLecture(active)).map((a) => ({ lecture_id: a.key, title: a.label, accuracy: pct(a.accuracy), answers: a.attempts })),
@@ -262,7 +268,7 @@ export function buildServer(env: Env): McpServer {
       annotations: read,
     },
     async ({ count, focus, lecture_ids, course, week, tags }) => {
-      const { active, lectures } = await load(env);
+      const { active, lectures, newFirst, released } = await load(env);
       const filters = {
         ...emptyFilters(),
         lectures: lecture_ids ?? [],
@@ -273,7 +279,7 @@ export function buildServer(env: Env): McpServer {
       };
       const pool = week !== undefined && !course ? active.filter((c) => c.lecture?.week === week) : active;
       const mode = focus === 'missed' ? 'missed' : focus === 'unseen' ? 'unseen' : focus === 'weak' ? 'weekly' : 'smart';
-      const picked = selectQuestions(pool, { ...defaultConfig(), mode, count, filters }, Date.now());
+      const picked = selectQuestions(pool, { ...defaultConfig(), mode, count, filters }, Date.now(), Math.random, { newFirst, released });
       if (!picked.length) return text('No questions match (they may all have been answered correctly in the last few days). Try another focus.');
       return json({ questions: picked.map((c) => asked(c.q, lectures.get(c.q.lecture_id))) });
     },

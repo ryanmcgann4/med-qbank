@@ -1,6 +1,8 @@
 import { db as defaultDb, emptyProgress, type Attempt, type Progress, type QBankDB, type QuizConfig, type QuizSession } from '../db';
 import { buildSession, selectQuestions, type Candidate } from './selection';
 import { applyAttempt } from './progress';
+import { releasedByExams } from './exams';
+import { DEFAULT_NEW_FIRST, getSetting, NEW_FIRST_KEY } from './settings';
 
 export { applyAttempt };
 
@@ -48,7 +50,9 @@ export async function loadCandidates(database: QBankDB = defaultDb, { includeArc
 
 export async function createQuiz(config: QuizConfig, title?: string, database: QBankDB = defaultDb): Promise<QuizSession | null> {
   const now = Date.now();
-  const picked = selectQuestions(await loadCandidates(database), config, now);
+  const newFirst = await getSetting(NEW_FIRST_KEY, DEFAULT_NEW_FIRST, database);
+  const released = releasedByExams(await database.exams.toArray(), now);
+  const picked = selectQuestions(await loadCandidates(database), config, now, Math.random, { newFirst, released });
   if (!picked.length) return null;
   const session = buildSession(picked, config, now, Math.random, title);
   await database.sessions.put(session);

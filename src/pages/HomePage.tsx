@@ -6,7 +6,9 @@ import { Badge, Button, Card, PageHeader, pct, Stat } from '../components/ui';
 import { db, type QuizConfig, type StatusKey } from '../db';
 import { formatDate } from '../lib/dates';
 import { defaultConfig, MODE_LABELS } from '../lib/selection';
-import { hasStatus } from '../lib/status';
+import { hasStatus, isRightReview } from '../lib/status';
+import { useNewFirst } from '../hooks/useSettings';
+import { releasedByExams } from '../lib/exams';
 import { createQuiz } from '../lib/tracking';
 import { useCandidates } from '../hooks/useBank';
 import { sessionScore } from './QuizReviewPage';
@@ -19,13 +21,19 @@ export function HomePage() {
   const imports = useLiveQuery(() => db.imports.orderBy('importedAt').reverse().limit(5).toArray(), []);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const newFirst = useNewFirst();
+  const exams = useLiveQuery(() => db.exams.toArray(), []);
 
-  if (!cands) return null;
+  if (!cands || !exams) return null;
 
   const now = Date.now();
   const count = (k: StatusKey) => cands.filter((c) => hasStatus(c.progress, k, now)).length;
-  const due = count('due');
   const unseen = count('unseen');
+  // With "new first", reviews of questions you got right wait while anything is unseen.
+  // In an exam's last week, its reviews come back regardless.
+  const released = releasedByExams(exams, now);
+  const held = newFirst && unseen > 0 ? cands.filter((c) => isRightReview(c.progress, now) && !released(c)).length : 0;
+  const due = count('due') - held;
   const missed = count('missed');
   const flagged = count('flagged');
   const seen = cands.length - unseen;
@@ -84,7 +92,12 @@ export function HomePage() {
       <ExamCards cands={cands} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Due today" value={due} tone="indigo" sub={due ? 'spaced-repetition reviews' : 'nothing due — nice'} />
+        <Stat
+          label="Due today"
+          value={due}
+          tone="indigo"
+          sub={held ? `+ ${held} you got right, after new ones` : due ? 'spaced-repetition reviews' : 'nothing due — nice'}
+        />
         <Stat label="Questions in bank" value={cands.length} sub={`${seen} seen · ${unseen} unseen`} />
         <Stat label="Overall accuracy" value={pct(attempts ? correct / attempts : null)} sub={`${attempts} answers`} />
         <Stat label="Missed last time" value={missed} sub={`${flagged} flagged`} />
@@ -95,7 +108,7 @@ export function HomePage() {
         <QuickStart
           icon={<Sparkles className="h-5 w-5" />}
           title="Smart mix · 20"
-          desc="Due reviews first, then misses, then new questions."
+          desc={newFirst ? 'Misses first, then new questions, then reviews of ones you got right.' : 'Due reviews first, then misses, then new questions.'}
           onClick={() => start({ mode: 'smart', count: 20 })}
           disabled={busy}
           primary
@@ -103,7 +116,7 @@ export function HomePage() {
         <QuickStart
           icon={<CalendarClock className="h-5 w-5" />}
           title={`Review due (${due})`}
-          desc="Everything the scheduler wants back today."
+          desc={held ? 'The misses the scheduler wants back today.' : 'Everything the scheduler wants back today.'}
           onClick={() => start({ mode: 'smart', count: Math.min(due, 100), filters: { ...defaultConfig().filters, statuses: ['due'] } }, 'Due reviews')}
           disabled={busy || !due}
         />

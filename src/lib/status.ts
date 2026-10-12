@@ -34,6 +34,9 @@ export function hasStatus(p: Progress | undefined, key: StatusKey, now: number):
   }
 }
 
+/** Due again, but you got it right last time: with "new first" on, these wait until there's nothing unseen. */
+export const isRightReview = (p: Progress | undefined, now: number) => hasStatus(p, 'due', now) && p!.lastResult === 'correct';
+
 export function statusesOf(p: Progress | undefined, now: number): StatusKey[] {
   return (Object.keys(STATUS_LABELS) as StatusKey[]).filter((k) => hasStatus(p, k, now));
 }

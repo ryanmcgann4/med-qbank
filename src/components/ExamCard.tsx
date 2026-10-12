@@ -2,9 +2,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { CalendarClock, CheckCircle2, Pencil, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { db, type Exam, type StoredLecture } from '../db';
+import { useNewFirst } from '../hooks/useSettings';
 import { useStartQuiz } from '../hooks/useStartQuiz';
 import { formatDate, todayISO } from '../lib/dates';
-import { planFor, upcoming, type ExamPlan } from '../lib/exams';
+import { planFor, releaseDate, upcoming, type ExamPlan } from '../lib/exams';
 import { deleteExam, saveExam } from '../lib/examStore';
 import { autoNames } from '../lib/org';
 import { weekKey, type Candidate } from '../lib/selection';
@@ -19,6 +20,7 @@ export function ExamCards({ cands }: { cands: Candidate[] }) {
   const lectures = useLiveQuery(() => db.lectures.toArray(), []);
   const [editing, setEditing] = useState<Exam | 'new' | null>(null);
   const [now] = useState(() => Date.now());
+  const newFirst = useNewFirst();
 
   if (!exams || !attempts || !lectures) return null;
   const next = upcoming(exams, now).slice(0, 2);
@@ -26,7 +28,7 @@ export function ExamCards({ cands }: { cands: Candidate[] }) {
   return (
     <div className="mb-6 space-y-3">
       {next.map((e) => (
-        <ExamCard key={e.id} exam={e} plan={planFor(e, cands, attempts, now)} onEdit={() => setEditing(e)} />
+        <ExamCard key={e.id} exam={e} plan={planFor(e, cands, attempts, now, { newFirst })} onEdit={() => setEditing(e)} />
       ))}
       {next.length === 0 ? (
         <button
@@ -96,6 +98,7 @@ function ExamCard({ exam, plan: p, onEdit }: { exam: Exam; plan: ExamPlan; onEdi
             )}
             <span className="text-sm text-slate-600 dark:text-slate-400">
               {firstPassDone ? 'First pass complete' : `First pass done by ${dayName(p.firstPassBy)}`}
+              {p.held > 0 && ` · ${p.held} you got right wait for new ones (back ${dayName(releaseDate(exam))} at the latest)`}
             </span>
           </div>
           {message && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{message}</p>}

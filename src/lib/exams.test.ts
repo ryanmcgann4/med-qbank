@@ -3,7 +3,7 @@ import { emptyProgress, type Attempt, type Exam, type StoredLecture } from '../d
 import { makeQuestion } from '../test/fixtures';
 import { buildAskPrompt, claudeUrl } from './askClaude';
 import { addDays } from './dates';
-import { inExam, planFor, reviewDays } from './exams';
+import { inExam, planFor, releasedByExams, releaseDate, reviewDays } from './exams';
 import { contentHash } from './hash';
 import type { Candidate } from './selection';
 
@@ -84,3 +84,38 @@ describe('ask Claude prompt', () => {
     expect(claudeUrl('a b&c')).toBe('https://claude.ai/new?q=a%20b%26c');
   });
 });
+
+describe('exam plan with new questions first', () => {
+  const W6 = lec(6);
+  const dueSrs = { box: 2, dueAt: addDays(NOW, -1), lastReviewedAt: 0 };
+  const right = cand('right', W6, { timesSeen: 1, timesCorrect: 1, lastResult: 'correct', lastAnsweredAt: NOW - 5 * 864e5, srs: dueSrs });
+  const wrong = cand('wrong', W6, { timesSeen: 1, lastResult: 'wrong', lastAnsweredAt: NOW - 5 * 864e5, srs: { ...dueSrs, box: 1 } });
+
+  it('holds reviews of questions you got right while the exam still has unseen ones', () => {
+    const p = planFor(exam(), [right, wrong, cand('n1', W6), cand('n2', W6)], [], NOW, { newFirst: true });
+    expect(p.held).toBe(1);
+    expect(p.reviewTarget).toBe(1);
+    expect(p.todayQids).toContain('wrong');
+    expect(p.todayQids).not.toContain('right');
+  });
+
+  it('in the last 7 days before the exam, its reviews come back even with unseen ones left', () => {
+    const cands = [right, wrong, cand('n1', W6)];
+    expect(planFor(exam({ date: '2026-10-13' }), cands, [], NOW, { newFirst: true })).toMatchObject({ held: 1 }); // 8 days out
+    expect(planFor(exam({ date: '2026-10-12' }), cands, [], NOW, { newFirst: true })).toMatchObject({ held: 0, reviewTarget: 2 }); // 7 days out
+    expect(releaseDate(exam({ date: '2026-10-29' }))).toBe('2026-10-22');
+  });
+
+  it('quizzes release only the questions in an exam less than a week away', () => {
+    const released = releasedByExams([exam({ date: '2026-10-12', weeks: ['Block 2::6'] })], NOW);
+    expect(released(right)).toBe(true);
+    expect(released(cand('w7', lec(7)))).toBe(false);
+    expect(releasedByExams([exam({ date: '2026-10-20' })], NOW)(right)).toBe(false);
+  });
+
+  it('brings them back once every question has been seen, or with the setting off', () => {
+    expect(planFor(exam(), [right, wrong], [], NOW, { newFirst: true })).toMatchObject({ held: 0, reviewTarget: 2 });
+    expect(planFor(exam(), [right, wrong, cand('n1', W6)], [], NOW)).toMatchObject({ held: 0, reviewTarget: 2 });
+  });
+});
+
