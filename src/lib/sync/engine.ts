@@ -37,7 +37,7 @@ Dexie.on('storagemutated', (parts) => {
   }
 });
 
-const EMPTY: BackupData = { questions: [], lectures: [], progress: [], attempts: [], sessions: [], imports: [], kv: [], deletions: [], exams: [], folders: [] };
+const EMPTY: BackupData = { questions: [], lectures: [], progress: [], attempts: [], sessions: [], imports: [], kv: [], deletions: [], exams: [], folders: [], settings: [] };
 /** Let the browser paint between tables, so a big rebuild doesn't freeze a quiz. */
 const yieldToUI = () => new Promise<void>((r) => setTimeout(r, 0));
 

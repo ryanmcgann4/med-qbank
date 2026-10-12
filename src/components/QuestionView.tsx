@@ -26,9 +26,11 @@ interface Props {
   scrollOnReveal?: boolean;
   /** Tutor quiz: offer a hint (the explanation) before answering. */
   onHint?: () => void;
+  /** Shown right under the result banner once revealed (e.g. the leech suggestion). */
+  notice?: ReactNode;
 }
 
-export function QuestionView({ question: q, lecture, order, answer, revealed, interactive, onSelect, onToggleStrike, browse, footer, scrollOnReveal, onHint }: Props) {
+export function QuestionView({ question: q, lecture, order, answer, revealed, interactive, onSelect, onToggleStrike, browse, footer, scrollOnReveal, onHint, notice }: Props) {
   const byId = new Map(q.options.map((o) => [o.id, o]));
   const correctLetter = letter(order.indexOf(q.correct_option));
   const chosenLetter = answer.chosen ? letter(order.indexOf(answer.chosen)) : null;
@@ -84,6 +86,7 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
           )}
         </div>
       )}
+      {revealed && notice}
 
       <div role="radiogroup" aria-label="Answer choices" className="mt-5 space-y-2.5">
         {order.map((id, i) => {

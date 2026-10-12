@@ -30,6 +30,7 @@ const BackupShape = z.object({
   deletions: z.array(z.object({ id: z.string(), at: z.number() }).loose()).default([]),
   exams: z.array(z.object({ id: z.string(), date: z.string() }).loose()).default([]),
   folders: z.array(z.object({ id: z.string(), name: z.string() }).loose()).default([]),
+  settings: z.array(z.object({ key: z.string(), updatedAt: z.number() }).loose()).default([]),
 });
 
 
@@ -37,7 +38,7 @@ const BackupShape = z.object({
 export const backupFileName = (now = Date.now()) => `qbank-backup-${todayISO(now)}.json`;
 
 export async function readAll(database: QBankDB = defaultDb): Promise<BackupData> {
-  const [questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams, folders] = await Promise.all([
+  const [questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams, folders, settings] = await Promise.all([
     database.questions.toArray(),
     database.lectures.toArray(),
     database.progress.toArray(),
@@ -48,8 +49,9 @@ export async function readAll(database: QBankDB = defaultDb): Promise<BackupData
     database.deletions.toArray(),
     database.exams.toArray(),
     database.folders.toArray(),
+    database.settings.toArray(),
   ]);
-  return { questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams, folders };
+  return { questions, lectures, progress, attempts, sessions, imports, kv, deletions, exams, folders, settings };
 }
 
 export async function exportBackup(database: QBankDB = defaultDb, now = Date.now()): Promise<BackupFile> {
@@ -81,7 +83,7 @@ export function parseBackup(text: string): { data?: BackupFile; error?: string }
   return { data: r.data as unknown as BackupFile };
 }
 
-const allTables = (d: QBankDB) => [d.questions, d.lectures, d.progress, d.attempts, d.sessions, d.imports, d.kv, d.deletions, d.exams, d.folders];
+const allTables = (d: QBankDB) => [d.questions, d.lectures, d.progress, d.attempts, d.sessions, d.imports, d.kv, d.deletions, d.exams, d.folders, d.settings];
 
 async function replaceAll(data: BackupData, database: QBankDB) {
   await database.transaction('rw', allTables(database), async () => {
@@ -96,6 +98,7 @@ async function replaceAll(data: BackupData, database: QBankDB) {
     await database.deletions.bulkAdd(data.deletions ?? []);
     await database.exams.bulkAdd(data.exams ?? []);
     await database.folders.bulkAdd(data.folders ?? []);
+    await database.settings.bulkAdd(data.settings ?? []);
   });
 }
 
@@ -151,6 +154,7 @@ async function writeChanges(current: BackupData, merged: BackupData, database: Q
   await keyed('deletions', database.deletions, current.deletions ?? [], merged.deletions ?? [], (d) => d.id);
   await keyed('exams', database.exams, current.exams ?? [], merged.exams ?? [], (e) => e.id);
   await keyed('folders', database.folders, current.folders ?? [], merged.folders ?? [], (f) => f.id);
+  await keyed('settings', database.settings, current.settings ?? [], merged.settings ?? [], (x) => x.key);
   await counted('attempts', database.attempts, current.attempts, merged.attempts, attemptKey);
   await counted('imports', database.imports, current.imports, merged.imports, importKey);
   return changed;

@@ -92,6 +92,13 @@ export interface Deletion {
   at: number;
 }
 
+/** A preference that follows you between devices; the newest change wins. */
+export interface Setting {
+  key: string;
+  value: unknown;
+  updatedAt: number;
+}
+
 export interface Attempt {
   id?: number;
   qid: string;
@@ -200,6 +207,7 @@ export class QBankDB extends Dexie {
   deletions!: EntityTable<Deletion, 'id'>;
   exams!: EntityTable<Exam, 'id'>;
   folders!: EntityTable<Folder, 'id'>;
+  settings!: EntityTable<Setting, 'key'>;
 
   constructor(name = 'med-qbank') {
     super(name);
@@ -215,6 +223,7 @@ export class QBankDB extends Dexie {
     this.version(2).stores({ deletions: 'id, at' });
     this.version(3).stores({ exams: 'id, date' });
     this.version(4).stores({ folders: 'id, parentId, autoKey' });
+    this.version(5).stores({ settings: 'key' });
   }
 }
 

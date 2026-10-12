@@ -7,17 +7,20 @@ import { QuestionRow } from '../components/QuestionRow';
 import { Badge, Button, Card, Chip, cn, inputClass, Modal, PageHeader, pct } from '../components/ui';
 import { db, type StoredLecture } from '../db';
 import { useCandidates } from '../hooks/useBank';
+import { useLeechThreshold } from '../hooks/useSettings';
 import { useStartQuiz } from '../hooks/useStartQuiz';
 import { deleteLectures } from '../lib/importer';
 import { normalizeText } from '../lib/hash';
 import { buildTree, ensureOrganization, moveLectures, renameLecture, type Tree } from '../lib/org';
 import { emptyFilters, type Candidate } from '../lib/selection';
+import { isLeech } from '../lib/settings';
 import { hasStatus } from '../lib/status';
 
-type Filter = 'all' | 'flagged' | 'reported' | 'edited' | 'missed' | 'unseen' | 'archived';
+type Filter = 'all' | 'flagged' | 'reported' | 'edited' | 'missed' | 'leech' | 'unseen' | 'archived';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
   ['missed', 'Missed'],
+  ['leech', 'Leeches'],
   ['flagged', 'Flagged'],
   ['reported', 'Reported'],
   ['edited', 'Edited'],
@@ -26,12 +29,14 @@ const FILTERS: [Filter, string][] = [
 ];
 
 /** Archived questions only appear under the Archived filter (and on their lecture's page). */
-function matchesFilter(c: Candidate, f: Filter, now: number): boolean {
+function matchesFilter(c: Candidate, f: Filter, now: number, leechAt: number): boolean {
   if (f === 'archived') return !!c.progress?.archived;
   if (c.progress?.archived) return false;
   switch (f) {
     case 'all':
       return true;
+    case 'leech':
+      return isLeech(c.progress, leechAt);
     case 'edited':
       return !!c.q.editedAt;
     default:
@@ -67,6 +72,7 @@ function LibraryIndex({ cands, lectures, tree, folderId }: { cands: Candidate[];
   const deferred = useDeferredValue(query);
   const terms = deferred.toLowerCase().split(/\s+/).filter((t) => t.length > 1);
   const now = Date.now();
+  const leechAt = useLeechThreshold();
 
   const index = useMemo(() => new Map(cands.map((c) => [c.q.qid, haystack(c)])), [cands]);
   const byLecture = useMemo(() => {
@@ -82,7 +88,7 @@ function LibraryIndex({ cands, lectures, tree, folderId }: { cands: Candidate[];
   const searching = terms.length > 0 || filter !== 'all';
   const results = searching
     ? cands
-        .filter((c) => matchesFilter(c, filter, now))
+        .filter((c) => matchesFilter(c, filter, now, leechAt))
         .filter((c) => terms.every((t) => index.get(c.q.qid)!.includes(t)))
         .sort((a, b) => a.q.qid.localeCompare(b.q.qid))
     : [];
@@ -110,8 +116,8 @@ function LibraryIndex({ cands, lectures, tree, folderId }: { cands: Candidate[];
         />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        {FILTERS.map(([f, label]) => (
-          <Chip key={f} selected={filter === f} onClick={() => setFilter(f)} count={f === 'all' ? undefined : cands.filter((c) => matchesFilter(c, f, now)).length}>
+        {FILTERS.filter(([f]) => f !== 'leech' || leechAt > 0).map(([f, label]) => (
+          <Chip key={f} selected={filter === f} onClick={() => setFilter(f)} count={f === 'all' ? undefined : cands.filter((c) => matchesFilter(c, f, now, leechAt)).length}>
             {label}
           </Chip>
         ))}
@@ -341,7 +347,7 @@ function DeleteLectures({
           </ul>
         )}
         <p className="mt-2 text-sm text-slate-500">
-          Want a copy first? Use <Link to="/data" className="underline">Data → Download backup</Link>.
+          Want a copy first? Use <Link to="/data" className="underline">Settings → Download backup</Link>.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>

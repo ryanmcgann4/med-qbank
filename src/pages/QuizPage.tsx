@@ -2,11 +2,14 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronLeft, ChevronRight, Flag, Keyboard, NotebookPen, Timer, X } from 'lucide-react';
 import { useCallback, useEffect, useReducer, useRef, useState, type RefObject, type TouchEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { HistoryNote, LeechNotice } from '../components/QuestionHistory';
 import { QuestionTools, NoteModal } from '../components/QuestionTools';
 import { CONFIDENCE_LABEL, QuestionView } from '../components/QuestionView';
 import { Button, cn, Kbd, Modal } from '../components/ui';
 import { db, type Confidence, type QuizSession, type SessionAnswer, type StoredLecture, type StoredQuestion } from '../db';
+import { useLeechThreshold } from '../hooks/useSettings';
 import { formatDuration } from '../lib/dates';
+import { missCount, reachedLeech } from '../lib/settings';
 import { recordAttempts, updateProgress } from '../lib/tracking';
 
 const CONFIDENCES: { c: Confidence; key: string; tone: string }[] = [
@@ -49,6 +52,7 @@ export function QuizPage() {
   const clock = useRef<Clock | null>(null);
   const finishing = useRef(false);
   const swipe = useRef<{ x: number; y: number; t: number } | null>(null);
+  const leechAt = useLeechThreshold();
 
   // Load the session once; after that this component owns it and persists changes.
   useEffect(() => {
@@ -399,6 +403,7 @@ export function QuizPage() {
 
       {q ? (
         <div key={i} className={dir === 'next' ? 'q-in-next' : 'q-in-prev'} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+          {!revealed && progress && <HistoryNote progress={p} />}
           <QuestionView
             question={q}
             lecture={data.lectures.get(q.lecture_id)}
@@ -409,6 +414,7 @@ export function QuizPage() {
             onSelect={select}
             onToggleStrike={toggleStrike}
             onHint={s.timed ? undefined : showHint}
+            notice={!answer.correct && reachedLeech(p, leechAt) ? <LeechNotice qid={q.qid} misses={missCount(p)} archived={!!p?.archived} /> : undefined}
             footer={<QuestionTools question={q} tools={['edit', 'report', 'archive']} />}
             scrollOnReveal
           />

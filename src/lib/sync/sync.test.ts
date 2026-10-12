@@ -5,6 +5,7 @@ import { sampleText } from '../../test/fixtures';
 import { readAll } from '../backup';
 import { applyImport, deleteLectures, planImport } from '../importer';
 import { loadCandidates, recordAttempts, updateProgress } from '../tracking';
+import { getSetting, LEECH_KEY, setSetting } from '../settings';
 import { syncOnce } from './engine';
 import type { Head, RepoClient, TreeChange } from './github';
 import { fromShards, gitBlobSha, stableStringify, toShards } from './shards';
@@ -133,6 +134,7 @@ describe('shards', () => {
       'progress-meta.json',
       'questions/B2-W6-D1-L1.json',
       'questions/B2-W6-D1-L2.json',
+      'settings.json',
     ]);
     const back = fromShards(files);
     expect(back.questions).toHaveLength(10);
@@ -306,5 +308,18 @@ describe('two devices syncing through one repo', () => {
     expect(after).toHaveLength(2);
     expect(after.find((a) => a.qid === Q1)?.id).toBe(mine.id);
     expect(await phone.progress.get(Q2)).toMatchObject({ timesSeen: 1, timesCorrect: 1 });
+  });
+
+  it('settings follow you between devices, newest change winning', async () => {
+    await setSetting(LEECH_KEY, 4, laptop);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+    expect(await getSetting(LEECH_KEY, 5, phone)).toBe(4);
+
+    await new Promise((r) => setTimeout(r, 5));
+    await setSetting(LEECH_KEY, 8, phone);
+    await syncOnce(repo, phone);
+    await syncOnce(repo, laptop);
+    expect(await getSetting(LEECH_KEY, 5, laptop)).toBe(8);
   });
 });

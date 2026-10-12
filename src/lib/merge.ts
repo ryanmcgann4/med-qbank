@@ -1,4 +1,4 @@
-import type { Attempt, Deletion, Exam, Folder, ImportRecord, KV, Progress, QuizSession, StoredLecture, StoredQuestion } from '../db';
+import type { Attempt, Deletion, Exam, Folder, ImportRecord, KV, Progress, QuizSession, Setting, StoredLecture, StoredQuestion } from '../db';
 import { applyAttempt, emptyProgress } from './progress';
 
 export interface BackupData {
@@ -13,6 +13,7 @@ export interface BackupData {
   deletions?: Deletion[];
   exams?: Exam[];
   folders?: Folder[];
+  settings?: Setting[];
 }
 
 /** Device-local keys (sync bookkeeping) never leave this browser in a backup. */
@@ -140,6 +141,12 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
   }
   for (const [id, f] of folders) if (deletedAt('folder', id) >= f.updatedAt) folders.delete(id);
 
+  const settings = new Map((current.settings ?? []).map((x) => [x.key, x]));
+  for (const x of incoming.settings ?? []) {
+    const mine = settings.get(x.key);
+    if (!mine || x.updatedAt > mine.updatedAt) settings.set(x.key, x);
+  }
+
   const kv = new Map(incoming.kv.filter((k) => !isDeviceKey(k.key)).map((k) => [k.key, k]));
   for (const k of current.kv) kv.set(k.key, k);
 
@@ -154,5 +161,6 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
     deletions: [...deletions.values()],
     exams: [...exams.values()],
     folders: [...folders.values()],
+    settings: [...settings.values()],
   };
 }

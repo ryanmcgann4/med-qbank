@@ -1,4 +1,4 @@
-import { BarChart3, BookOpenCheck, Database, Home, Library, Monitor, Moon, PlusCircle, Sun } from 'lucide-react';
+import { BarChart3, BookOpenCheck, Home, Library, Monitor, Moon, PlusCircle, Settings, Sun } from 'lucide-react';
 import { NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { BackupBanner } from './BackupBanner';
@@ -57,7 +57,7 @@ export function Layout() {
           <SyncIndicator />
           <NavLink
             to="/data"
-            title="Sync, backup, restore & export"
+            title="Settings: quiz preferences, sync, backup & export"
             className={({ isActive }) =>
               cn(
                 'inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm',
@@ -65,8 +65,8 @@ export function Layout() {
               )
             }
           >
-            <Database className="h-4 w-4" />
-            <span className="hidden sm:inline">Data</span>
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Settings</span>
           </NavLink>
           <button
             type="button"

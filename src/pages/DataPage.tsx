@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, RefreshCw, Repeat, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Card, Chip, cn, Field, inputClass, Modal, PageHeader, SectionTitle } from '../components/ui';
 import { db, getKV, type StatusKey } from '../db';
@@ -10,7 +10,9 @@ import { formatDate, relativeDay, todayISO } from '../lib/dates';
 import { downloadText } from '../lib/download';
 import { emptyFilters, matchesFilters, weekKey } from '../lib/selection';
 import { STATUS_LABELS } from '../lib/status';
+import { useLeechThreshold } from '../hooks/useSettings';
 import { useSyncState } from '../hooks/useSync';
+import { LEECH_CHOICES, LEECH_KEY, setSetting } from '../lib/settings';
 import { connect, disconnect, parseSetupCode, setupCode, syncNow } from '../lib/sync/controller';
 
 const ANKI_STATUSES: StatusKey[] = ['missed', 'ever_missed', 'lucky', 'flagged', 'reported', 'mastered'];
@@ -18,7 +20,8 @@ const ANKI_STATUSES: StatusKey[] = ['missed', 'ever_missed', 'lucky', 'flagged',
 export function DataPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <PageHeader title="Your data" subtitle="Everything lives in this browser only. Back up regularly, and use backups to move between devices." />
+      <PageHeader title="Settings" subtitle="Quiz preferences, sync, backups, and export. Your bank lives in this browser; sync or back up to keep it safe." />
+      <QuizSettingsSection />
       <SyncSection />
       <BackupSection />
       <AnkiSection />
@@ -98,7 +101,7 @@ function SyncSection() {
           </Button>
         </div>
         <p className="mt-3 text-xs text-slate-500">
-          The setup code contains your access token. Send it only to yourself (AirDrop, Notes), then paste it on the other device&apos;s Data page.
+          The setup code contains your access token. Send it only to yourself (AirDrop, Notes), then paste it on the other device&apos;s Settings page.
         </p>
         <Modal open={confirmOff} onClose={() => setConfirmOff(false)} title="Turn off sync on this device?">
           <p className="text-sm text-slate-700 dark:text-slate-300">
@@ -131,7 +134,7 @@ function SyncSection() {
       <div className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
         <div className="text-sm font-semibold">Already set up on another device?</div>
         <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
-          On that device: Data → <b>Copy setup code</b>. Paste it here.
+          On that device: Settings → <b>Copy setup code</b>. Paste it here.
         </p>
         <div className="mt-2 flex gap-2">
           <input className={inputClass} value={code} onChange={(e) => setCode(e.target.value)} placeholder="qbank-sync-1:…" autoComplete="off" spellCheck={false} />
@@ -362,6 +365,29 @@ function AnkiSection() {
           </Button>
           <span className="text-sm text-slate-500">In Anki: File → Import → pick the file. Columns and deck are set automatically.</span>
         </div>
+      </div>
+    </Card>
+  );
+}
+
+function QuizSettingsSection() {
+  const leechAt = useLeechThreshold();
+  return (
+    <Card className="p-5">
+      <SectionTitle hint="Syncs to your other devices.">
+        <span className="inline-flex items-center gap-2">
+          <Repeat className="h-5 w-5 text-indigo-600" /> Leeches
+        </span>
+      </SectionTitle>
+      <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+        After you've missed a question this many times, the app calls it a leech and suggests archiving it. Leeches also get their own filter in the Library.
+      </p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Leech threshold">
+        {LEECH_CHOICES.map((n) => (
+          <Chip key={n} selected={leechAt === n} onClick={() => void setSetting(LEECH_KEY, n)}>
+            {n === 0 ? 'Off' : `${n} misses`}
+          </Chip>
+        ))}
       </div>
     </Card>
   );

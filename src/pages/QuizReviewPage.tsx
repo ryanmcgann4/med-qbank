@@ -2,13 +2,16 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { ChevronDown, Flag, Home, RotateCcw, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router';
+import { LeechNotice } from '../components/QuestionHistory';
 import { QuestionTools } from '../components/QuestionTools';
 import { CONFIDENCE_LABEL, QuestionView } from '../components/QuestionView';
 import { Badge, Button, Card, Chip, cn, PageHeader, pct, Stat } from '../components/ui';
-import { db, type Confidence, type QuizSession, type StoredLecture, type StoredQuestion } from '../db';
+import { db, type Confidence, type Progress, type QuizSession, type StoredLecture, type StoredQuestion } from '../db';
+import { useLeechThreshold } from '../hooks/useSettings';
 import { formatDate, formatDuration } from '../lib/dates';
 import { defaultConfig, letter, MODE_LABELS } from '../lib/selection';
-import { createQuiz } from '../lib/tracking';
+import { isLeech, missCount, reachedLeech } from '../lib/settings';
+import { createQuiz, updateProgress } from '../lib/tracking';
 
 /**
  * Exam blocks are scored NBME-style (blanks count against you). Tutor quizzes
@@ -30,6 +33,8 @@ export function QuizReviewPage() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<Filter>('all');
   const [open, setOpen] = useState<Set<number>>(new Set());
+  const leechAt = useLeechThreshold();
+  const [archivedLeeches, setArchivedLeeches] = useState<string[] | null>(null);
 
   const data = useLiveQuery(async () => {
     const s = await db.sessions.get(id!);
@@ -39,8 +44,9 @@ export function QuizReviewPage() {
     const questions = new Map(qs.filter((q): q is StoredQuestion => !!q).map((q) => [q.qid, q]));
     const ls = await db.lectures.bulkGet([...new Set([...questions.values()].map((q) => q.lecture_id))]);
     const lectures = new Map(ls.filter((l): l is StoredLecture => !!l).map((l) => [l.lecture_id, l]));
-    const flagged = new Set(ps.filter((p) => p?.flagged).map((p) => p!.qid));
-    return { s, questions, lectures, flagged };
+    const progress = new Map(ps.filter((p): p is Progress => !!p).map((p) => [p.qid, p]));
+    const flagged = new Set([...progress.values()].filter((p) => p.flagged).map((p) => p.qid));
+    return { s, questions, lectures, flagged, progress };
   }, [id]);
 
   if (!data) return null;
@@ -52,7 +58,7 @@ export function QuizReviewPage() {
       </div>
     );
   }
-  const { s, questions, lectures, flagged } = data;
+  const { s, questions, lectures, flagged, progress } = data;
   if (!s.finishedAt) return <Navigate to={`/quiz/${s.id}`} replace />;
 
   const { correct, answered, total, outOf } = sessionScore(s);
@@ -80,6 +86,9 @@ export function QuizReviewPage() {
     const next = await createQuiz({ ...defaultConfig(), mode: 'custom', qids, count: qids.length, includeRecentCorrect: true }, title);
     if (next) navigate(`/quiz/${next.id}`);
   }
+
+  // Questions missed in this quiz that have now reached your leech threshold.
+  const leeches = [...new Set(missedIdx.map((i) => s.items[i].qid))].filter((qid) => isLeech(progress?.get(qid), leechAt));
 
   const missOrShaky = [...new Set([...missedIdx, ...s.answers.flatMap((a, i) => (a.confidence === 'guess' ? [i] : []))])];
 
@@ -137,6 +146,46 @@ export function QuizReviewPage() {
           <Sparkles className="h-4 w-4" /> New quiz
         </Button>
       </div>
+
+      {(leeches.length > 0 || archivedLeeches) && (
+        <Card className="mt-5 border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+          {archivedLeeches ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-auto">
+                Archived {archivedLeeches.length} leech{archivedLeeches.length === 1 ? ". It's" : "es. They're"} in the Library under Archived.
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  for (const qid of archivedLeeches) await updateProgress(qid, { archived: false });
+                  setArchivedLeeches(null);
+                }}
+              >
+                Undo
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-auto">
+                <span className="font-semibold">
+                  {leeches.length} question{leeches.length === 1 ? '' : 's'} you missed here {leeches.length === 1 ? 'is a leech' : 'are leeches'}
+                </span>{' '}
+                (missed {leechAt}+ times). Open {leeches.length === 1 ? 'it' : 'them'} below to edit, or archive{leeches.length === 1 ? ' it' : ' them all'}.
+              </span>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  for (const qid of leeches) await updateProgress(qid, { archived: true });
+                  setArchivedLeeches(leeches);
+                }}
+              >
+                Archive {leeches.length === 1 ? 'it' : `all ${leeches.length}`}
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
 
       <div className="mb-3 mt-8 flex flex-wrap items-center gap-2">
         <h2 className="mr-2 text-base font-semibold">Questions</h2>
@@ -200,6 +249,11 @@ export function QuizReviewPage() {
                     answer={a}
                     revealed
                     interactive={false}
+                    notice={
+                      a.chosen && !a.correct && reachedLeech(progress?.get(q.qid), leechAt) ? (
+                        <LeechNotice qid={q.qid} misses={missCount(progress?.get(q.qid))} archived={!!progress?.get(q.qid)?.archived} />
+                      ) : undefined
+                    }
                     footer={<QuestionTools question={q} />}
                   />
                 </div>

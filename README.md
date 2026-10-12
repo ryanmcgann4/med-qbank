@@ -117,6 +117,15 @@ On a phone, swipe left for the next question (once you've answered) and right fo
 Tap, click, or press the key for the answer you already selected (or double-click it)
 to lock it in as **Sure**. Right-click or long-press an answer to cross it out.
 
+Above each question, a line shows how it has gone for you before: **New
+question**, **Got it right last time**, **Right, but you guessed**, or **Missed
+twice before · take your time**, so a past miss makes you slow down.
+
+**Leeches:** once you've missed a question a set number of times (Settings →
+Leeches; default 5, or Off), missing it again suggests archiving it, with Undo.
+The quiz review lists any leeches from that quiz with **Archive all**, and the
+Library has a **Leeches** filter. The setting syncs between devices.
+
 Every question shows where it comes from (lecture, slides, objective) before you
 answer, so you know which part of the deck to look at. In tutor mode, **Show hint**
 opens the explanation before you answer. A correct answer after the hint is
@@ -200,7 +209,7 @@ answers in a row. The home screen shows how many are due today.
 
 ## Sync between phone and laptop
 
-**Data → Sync across devices** keeps every device's bank in sync through a
+**Settings → Sync across devices** keeps every device's bank in sync through a
 private GitHub repository you own. Each device keeps a full local copy, so the
 app still works offline. It syncs when you open the app, when you leave it
 (e.g. lock your phone), about 15 seconds after you answer, and every few
@@ -228,7 +237,7 @@ never included in backups or the synced data.
 
 ## Backup, restore, and moving between devices
 
-On the **Data** page:
+On the **Settings** page:
 
 - **Download backup** saves one JSON file with every question, lecture, answer,
   note, flag, report, and quiz. A banner reminds you weekly; dismissing it
@@ -242,7 +251,7 @@ On the **Data** page:
 
 ## Anki export
 
-**Data → Export to Anki** picks questions by status (missed, ever missed, lucky
+**Settings → Export to Anki** picks questions by status (missed, ever missed, lucky
 guess, flagged, reported, mastered) and week and downloads a CSV. In Anki use
 **File → Import**: the file's header lines set the separator, HTML, note type
 (Basic), deck, and a tags column. Front = stem + options; Back = answer +
