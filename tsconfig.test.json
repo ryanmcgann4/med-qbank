@@ -13,5 +13,6 @@
     "src/test",
     "scripts"
   ],
-  "exclude": []
+  // Runs with tsx and imports the connector, which is typed for Cloudflare Workers (see connector/tsconfig.json).
+  "exclude": ["scripts/qbank-local.ts"]
 }

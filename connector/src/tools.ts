@@ -1,17 +1,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Confidence, Progress, StatusKey, StoredLecture, StoredQuestion } from '../../src/db';
-import { classifyQuestions } from '../../src/lib/dedupe';
 import { planFor, releasedByExams, upcoming } from '../../src/lib/exams';
-import { contentHash } from '../../src/lib/hash';
 import { autoNames } from '../../src/lib/org';
 import { emptyProgress } from '../../src/lib/progress';
 import { defaultConfig, emptyFilters, selectQuestions, weekKey, type Candidate } from '../../src/lib/selection';
 import { byLecture, byTag, statusCounts, weakest } from '../../src/lib/stats';
 import { DEFAULT_NEW_FIRST, NEW_FIRST_KEY } from '../../src/lib/settings';
 import { isRightReview, statusesOf } from '../../src/lib/status';
-import { validateText } from '../../src/lib/validate';
 import { commitChange, dayIn, snapshot, withProgress, type Env } from './bank';
+import { importDay } from './importDay';
 
 const INSTRUCTIONS = `Q-Bank is the user's personal bank of USMLE Step 1-style practice questions, synced to their phone and laptop.
 
@@ -195,57 +193,10 @@ export function buildServer(env: Env): McpServer {
     },
     async ({ file_json, file_name }) => {
       let report: Record<string, unknown> = {};
-      const now = Date.now();
       const commit = await commitChange(env, (data) => {
-        const known = new Set(data.lectures.map((l) => l.lecture_id));
-        const v = validateText(file_json, file_name ?? 'from Claude', known);
-        if (!v.ok || !v.meta) {
-          report = { imported: 0, errors: v.fileErrors.map((e) => `${e.field}: ${e.message}`) };
-          return null;
-        }
-        const classified = classifyQuestions(
-          v.questions.map((question) => ({ question, fileIndex: 0 })),
-          data.questions,
-        );
-        const added = classified.filter((c) => c.kind === 'new');
-        report = {
-          day: v.meta.day_label,
-          imported: added.length,
-          already_in_bank: classified.filter((c) => c.kind === 'identical' || c.kind === 'batch_duplicate').length,
-          conflicts: classified
-            .filter((c) => c.kind === 'qid_conflict' || c.kind === 'content_duplicate')
-            .map((c) => `${c.question.qid}: ${c.kind === 'qid_conflict' ? 'same qid, different content' : `same question as ${c.existing?.qid}`} (resolve by importing the file in the app)`),
-          invalid: v.skipped.map((s) => `${s.issues[0]?.where}: ${s.issues.map((i) => `${i.field} ${i.message}`).join('; ')}`),
-          warnings: v.warnings,
-        };
-        const meta = v.meta;
-        for (const l of v.lectures) {
-          const prev = data.lectures.find((x) => x.lecture_id === l.lecture_id);
-          const fresh: StoredLecture = {
-            ...l,
-            course: meta.course,
-            week: meta.week,
-            day_label: meta.day_label,
-            date: meta.date,
-            importedAt: prev?.importedAt ?? now,
-            folderId: prev?.folderId,
-            movedAt: prev?.movedAt,
-            ...(prev?.renamedAt ? { title: prev.title, renamedAt: prev.renamedAt, importedTitle: l.title } : {}),
-          };
-          data.lectures = [...data.lectures.filter((x) => x.lecture_id !== l.lecture_id), fresh];
-        }
-        for (const c of added) data.questions.push({ ...c.question, hash: contentHash(c.question), importedAt: now, updatedAt: now, editedAt: null });
-        data.imports.push({
-          importedAt: now,
-          files: [{ name: file_name ?? 'from Claude', day_label: meta.day_label, course: meta.course, week: meta.week, date: meta.date }],
-          lectureIds: v.lectures.map((l) => l.lecture_id),
-          added: added.length,
-          overwritten: 0,
-          keptBoth: 0,
-          skipped: classified.length - added.length,
-          invalid: v.skipped.length,
-        });
-        return { data, message: `Import ${meta.day_label} from Claude (${added.length} questions)` };
+        const r = importDay(data, file_json, file_name ?? 'from Claude', Date.now());
+        report = r.report;
+        return r.change;
       });
       return json({ ...report, saved: !!commit });
     },
