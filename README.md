@@ -149,7 +149,7 @@ between devices.
 
 **Settings → Open slides on this computer** (per device) adds an **Open slides**
 button to each question's source line. It opens the lecture's PowerPoint at the
-cited slide (or its PDF in Chrome at that page) through a small helper app:
+cited slide (or its PDF in Microsoft Edge at that page) through a small helper app:
 
 ```bash
 mac-slides/install.sh "/path/to/Block 2" "Block 2"

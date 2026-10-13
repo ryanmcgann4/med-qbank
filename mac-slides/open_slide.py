@@ -110,19 +110,20 @@ def open_pptx(path, slide):
 
 
 def open_pdf(path, page):
-    # Chrome's PDF viewer honors #page=N; Preview has no way to jump to a page from a script.
+    # Edge's (and Chrome's) PDF viewer honors #page=N; Preview has no way to jump to a page from a script.
     url = "file://" + quote(path) + f"#page={page}"
-    if os.path.isdir("/Applications/Google Chrome.app"):
-        script = f'''
-        tell application "Google Chrome"
-            activate
-            open location {json.dumps(url)}
-            delay 0.3
-            tell front window to set active tab index to (count tabs)
-        end tell'''
-        subprocess.run(["osascript", "-e", script], check=True)
-    else:
-        subprocess.run(["open", path], check=True)
+    for browser in ("Microsoft Edge", "Google Chrome"):
+        if os.path.isdir(f"/Applications/{browser}.app"):
+            script = f'''
+            tell application "{browser}"
+                activate
+                open location {json.dumps(url)}
+                delay 0.3
+                tell front window to set active tab index to (count tabs)
+            end tell'''
+            subprocess.run(["osascript", "-e", script], check=True)
+            return
+    subprocess.run(["open", path], check=True)
 
 
 def main(url):
