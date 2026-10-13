@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, RefreshCw, Repeat, Sparkles, Trash2, Upload } from 'lucide-react';
+import { Check, Cloud, ClipboardCopy, DatabaseBackup, Download, ExternalLink, HardDrive, Layers, Presentation, RefreshCw, Repeat, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Card, Chip, cn, Field, inputClass, Modal, PageHeader, SectionTitle } from '../components/ui';
 import { db, getKV, type StatusKey } from '../db';
@@ -13,6 +13,7 @@ import { STATUS_LABELS } from '../lib/status';
 import { useLeechThreshold, useNewFirst } from '../hooks/useSettings';
 import { useSyncState } from '../hooks/useSync';
 import { LEECH_CHOICES, LEECH_KEY, NEW_FIRST_KEY, setSetting } from '../lib/settings';
+import { setSlidesOnThisDevice, slidesOnThisDevice } from '../lib/slides';
 import { connect, disconnect, parseSetupCode, setupCode, syncNow } from '../lib/sync/controller';
 
 const ANKI_STATUSES: StatusKey[] = ['missed', 'ever_missed', 'lucky', 'flagged', 'reported', 'mastered'];
@@ -23,6 +24,7 @@ export function DataPage() {
       <PageHeader title="Settings" subtitle="Quiz preferences, sync, backups, and export. Your bank lives in this browser; sync or back up to keep it safe." />
       <ReviewOrderSection />
       <QuizSettingsSection />
+      <SlidesSection />
       <SyncSection />
       <BackupSection />
       <AnkiSection />
@@ -389,6 +391,36 @@ function ReviewOrderSection() {
           On
         </Chip>
         <Chip selected={!newFirst} onClick={() => void setSetting(NEW_FIRST_KEY, false)}>
+          Off
+        </Chip>
+      </div>
+    </Card>
+  );
+}
+
+function SlidesSection() {
+  const [on, setOn] = useState(slidesOnThisDevice);
+  const choose = (v: boolean) => {
+    setSlidesOnThisDevice(v);
+    setOn(v);
+  };
+  return (
+    <Card className="p-5">
+      <SectionTitle hint="This device only.">
+        <span className="inline-flex items-center gap-2">
+          <Presentation className="h-5 w-5 text-indigo-600" /> Open slides on this computer
+        </span>
+      </SectionTitle>
+      <p className="mb-3 text-sm text-slate-600 dark:text-slate-400">
+        Adds an <b>Open slides</b> button to each question that opens the lecture's PowerPoint or PDF at the cited slide. It needs the Q-Bank Slides helper on this
+        Mac (in the app's <code>mac-slides</code> folder) and your lecture files, so it won't work on a phone. The first time, your browser asks to open Q-Bank Slides;
+        tick “Always allow”.
+      </p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Open slides on this computer">
+        <Chip selected={on} onClick={() => choose(true)}>
+          On
+        </Chip>
+        <Chip selected={!on} onClick={() => choose(false)}>
           Off
         </Chip>
       </div>

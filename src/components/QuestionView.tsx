@@ -1,7 +1,8 @@
-import { Lightbulb, BookOpen, Eye } from 'lucide-react';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { Lightbulb, BookOpen, Eye, Presentation } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Confidence, SessionAnswer, StoredLecture, StoredQuestion } from '../db';
 import { letter } from '../lib/selection';
+import { slideLink, slidesOnThisDevice } from '../lib/slides';
 import { QUESTION_TYPE_LABELS } from '../schema';
 import { AskClaude } from './AskClaude';
 import { Badge, cn } from './ui';
@@ -169,10 +170,11 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
 
 /** Where the question comes from in the slides. */
 function SourceCard({ question: q, lecture }: { question: StoredQuestion; lecture?: StoredLecture }) {
+  const [openable] = useState(slidesOnThisDevice);
   return (
     <div className="flex gap-3 rounded-xl bg-slate-100 p-4 text-sm dark:bg-slate-800/60">
       <BookOpen className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
-      <div className="space-y-0.5">
+      <div className="min-w-0 flex-1 space-y-0.5">
         <div>
           <span className="font-semibold">{lecture?.title ?? q.lecture_id}</span>
           {lecture?.lecturer && <span className="text-slate-600 dark:text-slate-400"> · {lecture.lecturer}</span>}
@@ -183,6 +185,15 @@ function SourceCard({ question: q, lecture }: { question: StoredQuestion; lectur
         </div>
         {q.source.objective && <div className="text-slate-600 dark:text-slate-400">Objective: {q.source.objective}</div>}
       </div>
+      {openable && (
+        <a
+          href={slideLink(q, lecture)}
+          title="Open this lecture's slides on this computer"
+          className="inline-flex h-fit shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 py-2 font-medium text-indigo-700 shadow-sm ring-1 ring-inset ring-slate-200 hover:bg-indigo-50 dark:bg-slate-900 dark:text-indigo-300 dark:ring-slate-700 dark:hover:bg-slate-800"
+        >
+          <Presentation className="h-4 w-4" /> Open slides
+        </a>
+      )}
     </div>
   );
 }

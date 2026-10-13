@@ -145,6 +145,24 @@ whatever is due. **Start today's plan** runs exactly that set. Targets are
 fixed at the start of the day, so they don't shrink as you work. Exams sync
 between devices.
 
+## Open slides on your Mac
+
+**Settings → Open slides on this computer** (per device) adds an **Open slides**
+button to each question's source line. It opens the lecture's PowerPoint at the
+cited slide (or its PDF in Chrome at that page) through a small helper app:
+
+```bash
+mac-slides/install.sh "/path/to/Block 2" "Block 2"
+```
+
+That builds `~/Applications/Q-Bank Slides.app`, registers it for `qbank-slides://`
+links, and points the course name (as it appears in Q-Bank) at its folder. The
+helper looks for files in `Week <n>/<n> <Weekday>/<Lecture>/`, matching the
+lecture title, and picks the handout, video, key points, etc. when the source
+says so ("handout p1"). For exact matches, list files by lecture id in
+`~/Library/Application Support/Q-Bank Slides/lectures.json`. The file paths stay
+on your Mac. Phones don't have the helper, so leave the setting off there.
+
 ## Ask Claude
 
 Every answered question has **Ask Claude about this**. Pick a quick question
