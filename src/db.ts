@@ -85,9 +85,9 @@ export interface Exam {
 
 /** Tombstone so a delete on one device propagates instead of being re-added by sync. */
 export interface Deletion {
-  /** `lecture:<lecture_id>` or `question:<qid>` */
+  /** `lecture:<lecture_id>`, `question:<qid>`, …, or `attempt:<attemptKey>` for an undone answer */
   id: string;
-  kind: 'lecture' | 'question' | 'exam' | 'folder';
+  kind: 'lecture' | 'question' | 'exam' | 'folder' | 'attempt';
   key: string;
   at: number;
 }
@@ -161,6 +161,8 @@ export interface SessionAnswer {
   correct: boolean | null;
   /** Opened the hint (the explanation) before answering. */
   hinted?: boolean;
+  /** When this answer was recorded, so it can be undone. */
+  attemptTs?: number;
 }
 
 export interface QuizSession {

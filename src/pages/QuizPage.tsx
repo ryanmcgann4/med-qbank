@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ChevronLeft, ChevronRight, Flag, Keyboard, NotebookPen, Timer, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, Keyboard, NotebookPen, RotateCcw, Timer, X } from 'lucide-react';
 import { useCallback, useEffect, useReducer, useRef, useState, type RefObject, type TouchEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { HistoryNote, LeechNotice } from '../components/QuestionHistory';
@@ -10,13 +10,16 @@ import { db, type Confidence, type QuizSession, type SessionAnswer, type StoredL
 import { useLeechThreshold } from '../hooks/useSettings';
 import { formatDuration } from '../lib/dates';
 import { missCount, reachedLeech } from '../lib/settings';
-import { recordAttempts, updateProgress } from '../lib/tracking';
+import { recordAttempts, undoAttempt, updateProgress } from '../lib/tracking';
 
 const CONFIDENCES: { c: Confidence; key: string; tone: string }[] = [
   { c: 'sure', key: 'S', tone: 'bg-emerald-600 hover:bg-emerald-500 text-white' },
   { c: 'unsure', key: 'U', tone: 'bg-amber-500 hover:bg-amber-400 text-white' },
   { c: 'guess', key: 'G', tone: 'bg-slate-600 hover:bg-slate-500 text-white' },
 ];
+
+/** Undoing within this long (a misclick) is free; after it, the retry counts like the hint, since you've seen the explanation. */
+const UNDO_GRACE_MS = 10_000;
 
 /** Ignore touches that start this close to the screen edge (Safari's back gesture lives there). */
 const EDGE_PX = 24;
@@ -52,6 +55,8 @@ export function QuizPage() {
   const clock = useRef<Clock | null>(null);
   const finishing = useRef(false);
   const swipe = useRef<{ x: number; y: number; t: number } | null>(null);
+  // The last answer being written, so an undo right after it waits for the write.
+  const recording = useRef<Promise<void>>(Promise.resolve());
   const leechAt = useLeechThreshold();
 
   // Load the session once; after that this component owns it and persists changes.
@@ -195,11 +200,12 @@ export function QuizPage() {
       if (answer.submitted) return;
       if (!answer.chosen) return remind();
       const correct = answer.chosen === q.correct_option;
-      patchAnswer(i, { confidence: c, submitted: true, correct });
-      void recordAttempts([
+      const ts = Date.now();
+      patchAnswer(i, { confidence: c, submitted: true, correct, attemptTs: ts });
+      recording.current = recordAttempts([
         {
           qid: item.qid,
-          ts: Date.now(),
+          ts,
           chosen: answer.chosen,
           correct,
           confidence: c,
@@ -257,6 +263,15 @@ export function QuizPage() {
 
   const openNote = useCallback(() => setNoteOpen(true), []);
 
+  const undo = useCallback(async () => {
+    if (!s || s.timed || !item || !answer?.submitted || !answer.attemptTs) return;
+    const ts = answer.attemptTs;
+    await recording.current;
+    await undoAttempt({ qid: item.qid, ts, sessionId: s.id });
+    const sawExplanation = Date.now() - ts > UNDO_GRACE_MS;
+    patchAnswer(i, { chosen: null, confidence: null, submitted: false, correct: null, attemptTs: undefined, ...(sawExplanation ? { hinted: true } : {}) });
+  }, [s, item, answer, i, patchAnswer]);
+
   const showHint = useCallback(() => {
     if (s && !s.timed && answer && !answer.submitted) patchAnswer(i, { hinted: true });
   }, [s, answer, i, patchAnswer]);
@@ -304,6 +319,7 @@ export function QuizPage() {
       } else if (k === 'f') toggleFlag();
       else if (k === 'n') openNote();
       else if (k === 'h') showHint();
+      else if (k === 'z') void undo();
       else if (k === 'arrowright' && (s.timed || answer?.submitted)) next();
       else if (k === 'arrowleft') goto(i - 1);
       else if (k === '?') setHelpOpen(true);
@@ -312,7 +328,7 @@ export function QuizPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, goto]);
+  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, undo, goto]);
 
   if (missing) {
     return (
@@ -494,7 +510,12 @@ export function QuizPage() {
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
               )}
-              <Button size="lg" className="ml-auto w-full sm:w-auto" onClick={next}>
+              {answer.attemptTs && (
+                <Button variant="ghost" onClick={() => void undo()} title="Take back this answer (Z)">
+                  <RotateCcw className="h-4 w-4" /> Undo <span className="hidden font-normal opacity-60 sm:inline">(Z)</span>
+                </Button>
+              )}
+              <Button size="lg" className="ml-auto flex-1 sm:w-auto sm:flex-none" onClick={next}>
                 {isLast ? 'Finish quiz' : 'Next question'} <span className="hidden font-normal opacity-75 sm:inline">(Enter)</span>
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -561,6 +582,11 @@ export function QuizPage() {
           {!s.timed && (
             <>
               <dt><Kbd>H</Kbd></dt><dd>Show the hint (the explanation); a right answer then comes back tomorrow</dd>
+            </>
+          )}
+          {!s.timed && (
+            <>
+              <dt><Kbd>Z</Kbd></dt><dd>Undo your answer (free within 10 seconds; after that, the retry counts like the hint)</dd>
             </>
           )}
           <dt>Swipe left / right</dt><dd>Next / previous question (phones)</dd>

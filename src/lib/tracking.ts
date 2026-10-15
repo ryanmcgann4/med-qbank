@@ -1,4 +1,5 @@
 import { db as defaultDb, emptyProgress, type Attempt, type Progress, type QBankDB, type QuizConfig, type QuizSession } from '../db';
+import { attemptKey } from './merge';
 import { buildSession, selectQuestions, type Candidate } from './selection';
 import { applyAttempt } from './progress';
 import { releasedByExams } from './exams';
@@ -14,6 +15,24 @@ export async function recordAttempts(attempts: Omit<Attempt, 'id'>[], database: 
       await database.progress.put(applyAttempt(prev, a.qid, a));
       await database.attempts.add(a);
     }
+  });
+}
+
+/**
+ * Take back an answer: remove it, rebuild that question's progress from the
+ * answers left, and leave a tombstone so another device's copy doesn't sync it back.
+ */
+export async function undoAttempt(a: Pick<Attempt, 'qid' | 'ts' | 'sessionId'>, database: QBankDB = defaultDb): Promise<void> {
+  await database.transaction('rw', [database.attempts, database.progress, database.deletions], async () => {
+    const mine = await database.attempts.where('qid').equals(a.qid).toArray();
+    const gone = mine.filter((x) => x.ts === a.ts && x.sessionId === a.sessionId);
+    if (!gone.length) return;
+    await database.attempts.bulkDelete(gone.map((x) => x.id!));
+    await database.deletions.bulkPut(gone.map((x) => ({ id: `attempt:${attemptKey(x)}`, kind: 'attempt' as const, key: attemptKey(x), at: Date.now() })));
+    const prev = (await database.progress.get(a.qid)) ?? emptyProgress(a.qid);
+    const meta = { flagged: prev.flagged, note: prev.note, report: prev.report, archived: prev.archived, metaUpdatedAt: prev.metaUpdatedAt };
+    const left = mine.filter((x) => !gone.includes(x)).sort((x, y) => x.ts - y.ts);
+    await database.progress.put(left.reduce<Progress>((p, x) => ({ ...applyAttempt(p, a.qid, x), ...meta }), { ...emptyProgress(a.qid), ...meta }));
   });
 }
 

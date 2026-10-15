@@ -112,7 +112,7 @@ the original option ids, so the display letters don't matter. Questions you got
 right in the last *N* days (default 3) are skipped unless they're due.
 
 **Keyboard:** `1`–`5` / `A`–`E` select · `S` / `U` / `G` = Sure / Unsure / Guess
-(submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `H` hint · `?` help.
+(submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `H` hint · `Z` undo · `?` help.
 On a phone, swipe left for the next question (once you've answered) and right for the previous one.
 Tap, click, or press the key for the answer you already selected (or double-click it)
 to lock it in as **Sure**. Right-click or long-press an answer to cross it out.
@@ -120,6 +120,12 @@ to lock it in as **Sure**. Right-click or long-press an answer to cross it out.
 Above each question, a line shows how it has gone for you before: **New
 question**, **Got it right last time**, **Right, but you guessed**, or **Missed
 twice before · take your time**, so a past miss makes you slow down.
+
+**Undo** (tutor mode, next to **Next question**, or `Z`) takes back an answer:
+it's removed, the question's progress and schedule are rebuilt from your other
+answers, and the removal syncs to your other devices. Undoing within 10 seconds
+is free; after that your retry counts like the hint (it comes back tomorrow),
+since you've seen the explanation.
 
 **Leeches:** once you've missed a question a set number of times (Settings →
 Leeches; default 5, or Off), missing it again suggests archiving it, with Undo.

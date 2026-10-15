@@ -87,6 +87,7 @@ export function mergeData(current: BackupData, incoming: BackupData): BackupData
   const attempts = new Map<string, Attempt>();
   for (const a of [...current.attempts, ...incoming.attempts]) {
     if (deletedAt('question', a.qid) >= a.ts) continue;
+    if (deletions.has(`attempt:${attemptKey(a)}`)) continue; // undone
     const { id: _id, ...rest } = a;
     void _id;
     attempts.set(attemptKey(a), rest);

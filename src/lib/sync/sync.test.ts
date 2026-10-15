@@ -4,7 +4,7 @@ import { QBankDB } from '../../db';
 import { sampleText } from '../../test/fixtures';
 import { readAll } from '../backup';
 import { applyImport, deleteLectures, planImport } from '../importer';
-import { loadCandidates, recordAttempts, updateProgress } from '../tracking';
+import { loadCandidates, recordAttempts, undoAttempt, updateProgress } from '../tracking';
 import { getSetting, LEECH_KEY, setSetting } from '../settings';
 import { syncOnce } from './engine';
 import type { Head, RepoClient, TreeChange } from './github';
@@ -322,4 +322,28 @@ describe('two devices syncing through one repo', () => {
     await syncOnce(repo, laptop);
     expect(await getSetting(LEECH_KEY, 5, laptop)).toBe(8);
   });
+
+  it('an undone answer is removed everywhere, and progress goes back to before it', async () => {
+    await applyImport(await planImport([{ name: 's', text: sampleText() }], laptop), {}, laptop);
+    await recordAttempts([answer(Q1, T, true, 'phone')], phone);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+    const before = await phone.progress.get(Q1);
+
+    await recordAttempts([answer(Q1, T + 60_000, false, 'phone')], phone); // a misclick
+    await syncOnce(repo, phone);
+    await syncOnce(repo, laptop);
+    expect(await laptop.attempts.where('qid').equals(Q1).count()).toBe(2);
+
+    await undoAttempt({ qid: Q1, ts: T + 60_000, sessionId: 'phone' }, phone);
+    expect(await phone.progress.get(Q1)).toEqual(before);
+    await syncOnce(repo, phone);
+    await syncOnce(repo, laptop);
+    await syncOnce(repo, phone);
+    for (const d of [phone, laptop]) {
+      expect(await d.attempts.where('qid').equals(Q1).count()).toBe(1);
+      expect(await d.progress.get(Q1)).toMatchObject({ timesSeen: 1, timesCorrect: 1, lastResult: 'correct' });
+    }
+  });
 });
+
