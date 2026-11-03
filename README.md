@@ -113,7 +113,9 @@ right in the last *N* days (default 3) are skipped unless they're due.
 
 **Keyboard:** `1`–`5` / `A`–`E` select · `S` / `U` / `G` = Sure / Unsure / Guess
 (submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `H` hint · `Z` undo · `?` help.
-On a phone, swipe left for the next question (once you've answered) and right for the previous one.
+You can move back and forth without answering: use the arrows in the bottom bar, the `←`/`→` keys, or
+the progress bar. On a phone, swipe left for the next question and right for the previous one.
+Questions you skip stay unanswered until you come back to them, and aren't recorded if you finish without them.
 Tap, click, or press the key for the answer you already selected (or double-click it)
 to lock it in as **Sure**. Right-click or long-press an answer to cross it out.
 

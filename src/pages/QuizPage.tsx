@@ -114,7 +114,7 @@ export function QuizPage() {
     setSession((s) => (s ? { ...s, answers: s.answers.map((a, j) => (j === i ? { ...a, ...patch } : a)) } : s));
   }, []);
 
-  // "Select an answer" flashes when you try to go on without one.
+  // "Select an answer" flashes when you try to lock one in without choosing.
   const remind = useCallback(() => {
     setNudge(true);
     setTimeout(() => setNudge(false), 900);
@@ -276,7 +276,7 @@ export function QuizPage() {
     if (s && !s.timed && answer && !answer.submitted) patchAnswer(i, { hinted: true });
   }, [s, answer, i, patchAnswer]);
 
-  // Phones: swipe left for the next question (once answered), right for the previous one.
+  // Phones: swipe left for the next question, right for the previous one.
   const onTouchStart = (e: TouchEvent) => {
     const t = e.touches[0];
     swipe.current = e.touches.length === 1 && t.clientX > EDGE_PX && t.clientX < window.innerWidth - EDGE_PX ? { x: t.clientX, y: t.clientY, t: Date.now() } : null;
@@ -292,9 +292,7 @@ export function QuizPage() {
     if (window.getSelection()?.toString()) return; // selecting text, not swiping
     if (dx > 0) return goto(i - 1);
     // Swiping never ends the quiz; that stays a deliberate tap.
-    if (isLast) return;
-    if (s.timed || answer?.submitted) goto(i + 1);
-    else remind();
+    if (!isLast) goto(i + 1);
   };
 
   // Keyboard shortcuts.
@@ -320,8 +318,11 @@ export function QuizPage() {
       else if (k === 'n') openNote();
       else if (k === 'h') showHint();
       else if (k === 'z') void undo();
-      else if (k === 'arrowright' && (s.timed || answer?.submitted)) next();
-      else if (k === 'arrowleft') goto(i - 1);
+      else if (k === 'arrowright') {
+        // An unanswered question can be skipped, but only the Finish button ends the quiz from one.
+        if (s.timed || answer?.submitted) next();
+        else goto(i + 1);
+      } else if (k === 'arrowleft') goto(i - 1);
       else if (k === '?') setHelpOpen(true);
       else return;
       e.preventDefault();
@@ -493,6 +494,11 @@ export function QuizPage() {
                   'Select an answer'
                 )}
               </span>
+              {!isLast && (
+                <Button variant="ghost" className="sm:order-last" onClick={() => goto(i + 1)} aria-label="Next question" title="Skip for now (→)">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              )}
               {answer.chosen && (
                 <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto">
                   {CONFIDENCES.map(({ c, key, tone }) => (
@@ -575,8 +581,8 @@ export function QuizPage() {
           <dt><Kbd>1</Kbd>–<Kbd>5</Kbd> / <Kbd>A</Kbd>–<Kbd>E</Kbd></dt><dd>Select an answer</dd>
           <dt>Same key / click again</dt><dd>Lock in the selected answer as Sure</dd>
           <dt><Kbd>S</Kbd> <Kbd>U</Kbd> <Kbd>G</Kbd></dt><dd>Sure / Unsure / Guess {s.timed ? '(optional in exam mode)' : '— submits your answer'}</dd>
-          <dt><Kbd>Enter</Kbd> / <Kbd>→</Kbd></dt><dd>Next question</dd>
-          <dt><Kbd>←</Kbd></dt><dd>Previous question</dd>
+          <dt><Kbd>Enter</Kbd></dt><dd>Next question{s.timed ? '' : ' (once answered)'}</dd>
+          <dt><Kbd>←</Kbd> <Kbd>→</Kbd></dt><dd>Previous / next question, answered or not</dd>
           <dt><Kbd>F</Kbd></dt><dd>Flag / unflag</dd>
           <dt><Kbd>N</Kbd></dt><dd>Add a note</dd>
           {!s.timed && (
