@@ -2,8 +2,8 @@
 # Sets up the Q-Bank helpers on this Mac:
 #  - "Q-Bank Slides.app" in ~/Applications, registered for qbank-slides:// links, so Q-Bank's
 #    "Open slides" button opens the lecture file at its slide
-#  - a LaunchAgent that files new lecture downloads into Week N/<n Day>/<Lecture>/ (needs schedule.json,
-#    from parse_schedule.py)
+#  - a LaunchAgent that organizes lecture files you drop into the course folder into
+#    Week N/<n Day>/<Lecture>/ (needs schedule.json, from parse_schedule.py); Downloads is left alone
 #  - a Finder Quick Action, "Make Q-Bank Questions", for lecture and day folders
 #  - the qbank-generator skill, linked into ~/.claude/skills for Claude Code
 #   ./install.sh "/path/to/Block 2" "Block 2" owner/qbank-data   # course folder, its name in Q-Bank, your sync repo
@@ -26,7 +26,7 @@ end run
 AS
 osacompile -o "$APP" "$SCRIPT"
 rm -f "$SCRIPT"
-cp "$DIR"/open_slide.py "$DIR"/common.py "$DIR"/file_downloads.py "$APP/Contents/Resources/"
+cp "$DIR"/open_slide.py "$DIR"/common.py "$DIR"/organize.py "$APP/Contents/Resources/"
 PLIST="$APP/Contents/Info.plist"
 plutil -replace CFBundleIdentifier -string "local.qbank.slides" "$PLIST"
 plutil -replace CFBundleName -string "Q-Bank Slides" "$PLIST"
@@ -49,25 +49,32 @@ PY
 fi
 echo "Installed $APP"
 
-# Watch Downloads: any change opens qbank-slides://file-downloads, which the app handles
-# (as an app, it's what macOS asks you about for Downloads access).
-AGENT="$HOME/Library/LaunchAgents/local.qbank.file-downloads.plist"
+# Watch each course folder and its Week/day folders: a change opens qbank-slides://organize, which the
+# app handles. (Run this again after adding a new Week folder so it's watched too.)
+OLD="$HOME/Library/LaunchAgents/local.qbank.file-downloads.plist"
+if [[ -f "$OLD" ]]; then
+  launchctl bootout "gui/$(id -u)" "$OLD" 2>/dev/null || true
+  rm -f "$OLD" "$SUPPORT/filed-state.json"
+fi
+AGENT="$HOME/Library/LaunchAgents/local.qbank.organize.plist"
 mkdir -p "$HOME/Library/LaunchAgents"
-cat > "$AGENT" <<PL
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>local.qbank.file-downloads</string>
-  <key>ProgramArguments</key><array><string>/usr/bin/open</string><string>-g</string><string>qbank-slides://file-downloads</string></array>
-  <key>WatchPaths</key><array><string>$HOME/Downloads</string></array>
-  <key>ThrottleInterval</key><integer>5</integer>
-</dict>
-</plist>
-PL
+/usr/bin/python3 - "$AGENT" "$DIR" <<'PY'
+import plistlib, sys
+agent, here = sys.argv[1:]
+sys.path.insert(0, here)
+import organize
+from common import load
+roots = {c: r for c, r in load("config.json", {}).get("courses", {}).items()}
+plistlib.dump({
+    "Label": "local.qbank.organize",
+    "ProgramArguments": ["/usr/bin/open", "-g", "qbank-slides://organize"],
+    "WatchPaths": organize.watch_paths(roots),
+    "ThrottleInterval": 5,
+}, open(agent, "wb"))
+PY
 launchctl bootout "gui/$(id -u)" "$AGENT" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$AGENT"
-echo "Watching ~/Downloads for lecture files"
+echo "Organizing files you drop into: $(/usr/bin/python3 -c 'import json,os; print(", ".join(json.load(open(os.path.expanduser("~/Library/Application Support/Q-Bank Slides/config.json")))["courses"].values()))')"
 
 # Finder → right-click a folder → Quick Actions → Make Q-Bank Questions.
 WF="$HOME/Library/Services/Make Q-Bank Questions.workflow"

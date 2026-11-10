@@ -11,7 +11,7 @@ STOP = {
     "intro", "introduction", "lecture", "lectures", "week", "block", "reading", "handout", "independent", "learning", "online",
     "long", "theme", "dctr", "dctr1", "oasa", "fdts", "slides", "final", "foundations", "resource", "resources", "key", "points",
     "video", "pdf", "accessible", "canvas", "students", "prework", "combined", "revised", "assessment", "questions", "practice",
-    "poll", "everywhere", "version", "copy", "2023", "2024", "2025", "2026", "2027", "all",
+    "poll", "everywhere", "version", "copy", "tbl", "2023", "2024", "2025", "2026", "2027", "all",
 }
 
 

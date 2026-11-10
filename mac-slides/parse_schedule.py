@@ -15,7 +15,7 @@ DAYS = {"monday": 1, "tuesday": 2, "wednesday": 3, "thursday": 4, "friday": 5}
 
 def clean_title(title):
     """Calendar title → folder name: drop "Week N -", "Independent Learning:", "Online Lecture"; no colons or slashes."""
-    t = re.sub(r"^\s*Week\s*\d+\s*-\s*", "", title)
+    t = re.sub(r"^\s*Week\s*\d+\s*[-:]\s*", "", title)
     t = re.sub(r"^(Online Lecture|Lecture)\s*:?\s*", "", t, flags=re.I)
     t = re.sub(r"^Independent Learning\s*[:\-]?\s*", "", t, flags=re.I)
     t = re.sub(r"^(Online Lecture|Lecture)\s*:?\s*", "", t, flags=re.I)

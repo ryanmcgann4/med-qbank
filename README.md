@@ -171,20 +171,20 @@ says so ("handout p1"). For exact matches, list files by lecture id in
 `~/Library/Application Support/Q-Bank Slides/lectures.json`. The file paths stay
 on your Mac. Phones don't have the helper, so leave the setting off there.
 
-### Filing downloads and making questions from Finder
+### Organizing lecture files and making questions from Finder
 
 The same installer (`mac-slides/install.sh "<course folder>" "<course name>" <owner/sync-repo>`)
 also sets up:
 
-- **Auto-filing downloads.** Paste the course's Canvas modules page into a text
-  file and run
+- **Organizing what you add to the course folder.** Paste the course's Canvas
+  modules page into a text file and run
   `mac-slides/parse_schedule.py canvas.txt --course "Block 2" --first-week 7 --first-monday 2026-09-14`.
-  From then on, lecture files you download are moved into
-  `Week <n>/<n> <Weekday>/<Lecture>/` (matched by name against the schedule,
-  preferring lectures near today) with a notification. Files that don't clearly
-  match a lecture stay in Downloads, and nothing that was there before
-  installing is touched. Q-Bank day files (`B2_W12_D1_….json`) go into their day
-  folder.
+  Then drop lecture files into the course folder (or a Week or day folder inside
+  it) and they're moved into `Week <n>/<n> <Weekday>/<Lecture>/`, matched by name
+  against the schedule (only that week's or day's lectures if you dropped them
+  there), with a notification. Files that don't clearly match stay where you put
+  them. Downloads is never touched. Q-Bank day files (`B2_W12_D1_….json`) go
+  into their day folder. Run the installer again after adding a new Week folder.
 - **Make Q-Bank Questions** (Finder → right-click a lecture or day folder →
   Quick Actions). Converts the lecture's PowerPoints to PDF, has Claude Code
   write and validate the questions with the qbank-generator skill, and adds them

@@ -95,10 +95,10 @@ def open_pdf(path, page):
 
 
 def main(url):
-    if urlparse(url).netloc == "file-downloads":
-        import file_downloads
+    if urlparse(url).netloc in ("organize", "file-downloads"):
+        import organize
 
-        file_downloads.run()
+        organize.run()
         return
     q = {k: v[0] for k, v in parse_qs(urlparse(url).query).items()}
     config = load("config.json", {})
