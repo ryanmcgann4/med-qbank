@@ -1,8 +1,10 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { importDay } from '../../connector/src/importDay';
 import { QBankDB } from '../db';
 import { sample, sampleText } from '../test/fixtures';
 import { mergeInto, readAll } from './backup';
+import type { BackupData } from './merge';
 import { applyImport, planImport } from './importer';
 import {
   autoFolderId,
@@ -40,6 +42,45 @@ const DAY = autoFolderId('day:Block 2::Week 6 – Day 1 (Mon Oct 5)');
 const WEEK = autoFolderId('week:Block 2::6');
 const COURSE = autoFolderId('course:Block 2');
 const tree = async (d = db) => buildTree(await d.folders.toArray(), await d.lectures.toArray());
+
+describe('imports from Claude or the Finder action', () => {
+  const blank = () => ({ questions: [], lectures: [], progress: [], attempts: [], sessions: [], imports: [], kv: [] }) as BackupData;
+
+  it('files new lectures under Course › Week › Day in the data it saves', () => {
+    const data = blank();
+    importDay(data, sampleText(), 's.json', 1000);
+    expect(data.lectures.map((l) => l.folderId)).toEqual([DAY, DAY]);
+    const t = buildTree(data.folders ?? [], data.lectures);
+    expect(pathTo(t, DAY).map((f) => f.name)).toEqual(['Block 2', 'Week 6', 'Week 6 – Day 1 (Mon Oct 5)']);
+    expect(data.folders?.every((f) => f.updatedAt === 0)).toBe(true);
+  });
+
+  it('reuses folders, including ones you renamed', () => {
+    const data = blank();
+    data.folders = [{ id: DAY, name: 'Monday', parentId: WEEK, autoKey: 'x', updatedAt: 5 }];
+    importDay(data, sampleText(), 's.json', 1000);
+    expect(data.folders.find((f) => f.id === DAY)?.name).toBe('Monday');
+    expect(data.folders.filter((f) => f.id === DAY)).toHaveLength(1);
+  });
+
+  it('keeps a lecture where you moved it, even at the top level, and files one never filed', () => {
+    const data = blank();
+    importDay(data, sampleText(), 's.json', 1000);
+    data.lectures.find((l) => l.lecture_id === L1)!.folderId = null;
+    delete data.lectures.find((l) => l.lecture_id === L2)!.folderId;
+    importDay(data, sampleText(), 's.json', 2000);
+    expect(data.lectures.find((l) => l.lecture_id === L1)?.folderId).toBeNull();
+    expect(data.lectures.find((l) => l.lecture_id === L2)?.folderId).toBe(DAY);
+  });
+
+  it('files a lecture the same as the app, so devices agree', async () => {
+    const data = blank();
+    importDay(data, sampleText(), 's.json', 1000);
+    await importSample(db);
+    expect((await db.lectures.get(L1))?.folderId).toBe(data.lectures.find((l) => l.lecture_id === L1)?.folderId);
+    expect((await db.folders.toArray()).map((f) => f.id).sort()).toEqual((data.folders ?? []).map((f) => f.id).sort());
+  });
+});
 
 describe('auto-filing', () => {
   it('files imported lectures under Course › Week › Day', async () => {

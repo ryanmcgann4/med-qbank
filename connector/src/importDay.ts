@@ -8,6 +8,7 @@ import type { StoredLecture } from '../../src/db';
 import { classifyQuestions } from '../../src/lib/dedupe';
 import { contentHash } from '../../src/lib/hash';
 import type { BackupData } from '../../src/lib/merge';
+import { autoChain } from '../../src/lib/org';
 import { validateText } from '../../src/lib/validate';
 import type { Change } from './bank';
 
@@ -32,6 +33,19 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
     warnings: v.warnings,
   };
   const meta = v.meta;
+  // File it under Course › Week › Day now, the way the app would: a device that gets it by sync
+  // may not file it until much later, leaving it loose at the top of the library.
+  const fileInDay = () => {
+    const folders = (data.folders ??= []);
+    const chain = autoChain({ course: meta.course, week: meta.week, day_label: meta.day_label });
+    for (const f of chain) {
+      if (folders.some((x) => x.id === f.id)) continue;
+      // If you deleted this folder before, recreate it newer than the delete so it sticks.
+      const deleted = data.deletions?.some((d) => d.id === `folder:${f.id}`);
+      folders.push({ ...f, updatedAt: deleted ? now : 0 });
+    }
+    return chain[chain.length - 1].id;
+  };
   for (const l of v.lectures) {
     const prev = data.lectures.find((x) => x.lecture_id === l.lecture_id);
     const fresh: StoredLecture = {
@@ -41,7 +55,8 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
       day_label: meta.day_label,
       date: meta.date,
       importedAt: prev?.importedAt ?? now,
-      folderId: prev?.folderId,
+      // null is a deliberate move to the top level; only a lecture never filed gets a folder.
+      folderId: prev?.folderId === undefined ? fileInDay() : prev.folderId,
       movedAt: prev?.movedAt,
       ...(prev?.renamedAt ? { title: prev.title, renamedAt: prev.renamedAt, importedTitle: l.title } : {}),
     };

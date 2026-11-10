@@ -86,6 +86,19 @@ export function autoNames(folders: readonly Folder[]) {
   };
 }
 
+/** The Course › Week › Day folders a lecture is auto-filed under, outermost first. */
+export function autoChain(l: Pick<StoredLecture, 'course' | 'week' | 'day_label'>): Omit<Folder, 'updatedAt'>[] {
+  const course = { autoKey: `course:${l.course}`, name: l.course };
+  const week = { autoKey: `week:${weekKey(l.course, l.week)}`, name: `Week ${l.week}` };
+  const day = { autoKey: `day:${dayKey(l.course, l.day_label)}`, name: l.day_label };
+  let parentId: string | null = null;
+  return [course, week, day].map((f) => {
+    const folder = { ...f, id: autoFolderId(f.autoKey), parentId };
+    parentId = folder.id;
+    return folder;
+  });
+}
+
 /**
  * File every lecture that has never been filed under Course › Week › Day,
  * creating those folders if needed. Existing folders are reused even if you
@@ -97,21 +110,16 @@ export async function ensureOrganization(database: QBankDB = defaultDb): Promise
     const unfiled = (await database.lectures.toArray()).filter((l) => l.folderId === undefined);
     if (!unfiled.length) return 0;
     const known = new Set((await database.folders.toCollection().primaryKeys()) as string[]);
-    const ensure = async (autoKey: string, name: string, parentId: string | null) => {
-      const id = autoFolderId(autoKey);
-      if (!known.has(id)) {
-        // If you deleted this folder before, recreate it newer than the delete so it sticks.
-        const deleted = await database.deletions.get(`folder:${id}`);
-        await database.folders.put({ id, name, parentId, autoKey, updatedAt: deleted ? Date.now() : 0 });
-        known.add(id);
-      }
-      return id;
-    };
     for (const l of unfiled) {
-      const course = await ensure(`course:${l.course}`, l.course, null);
-      const week = await ensure(`week:${weekKey(l.course, l.week)}`, `Week ${l.week}`, course);
-      const day = await ensure(`day:${dayKey(l.course, l.day_label)}`, l.day_label, week);
-      await database.lectures.update(l.lecture_id, { folderId: day });
+      const chain = autoChain(l);
+      for (const f of chain) {
+        if (known.has(f.id)) continue;
+        // If you deleted this folder before, recreate it newer than the delete so it sticks.
+        const deleted = await database.deletions.get(`folder:${f.id}`);
+        await database.folders.put({ ...f, updatedAt: deleted ? Date.now() : 0 });
+        known.add(f.id);
+      }
+      await database.lectures.update(l.lecture_id, { folderId: chain[chain.length - 1].id });
     }
     return unfiled.length;
   });
