@@ -93,12 +93,21 @@ def bank_context(course, date):
     return json.loads(out.stdout)
 
 
+def same_lecture(a, b):
+    """Whether two titles name the same lecture. Lectures on one day often share words ("Cell Injury" /
+    "Cell Adaptations", or "Kidney Physiology: …" for several), so nearly all the words of each must match."""
+    if numbers(a) != numbers(b):
+        return False  # "Case Studies 1" isn't "Case Studies 2"
+    wa, wb = words(a), words(b)
+    if not wa or not wb:
+        return a.strip().lower() == b.strip().lower()
+    return overlap(wa, wb) >= 0.8 * len(wa) and overlap(wb, wa) >= 0.8 * len(wb)
+
+
 def lecture_id_for(code, week, day, title, ctx):
     """Reuse the bank's id if this lecture is already there; else the next free L number for the day."""
     for l in ctx["lectures"]:
-        if numbers(title) and numbers(l["title"]) and not numbers(title) & numbers(l["title"]):
-            continue  # "Case Studies 1" isn't "Case Studies 2"
-        if overlap(words(title), words(l["title"])) >= max(1, 0.5 * len(words(title))):
+        if same_lecture(title, l["title"]):
             return l["lecture_id"], True
     prefix = f"{code}-W{week}-D{day}-L"
     used = [int(i[len(prefix):]) for i in ctx["all_lecture_ids"] if i.startswith(prefix) and i[len(prefix):].isdigit()]
