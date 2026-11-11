@@ -41,6 +41,7 @@ export function StatusBadges({ q, p, now = Date.now() }: { q: StoredQuestion; p?
       {p?.report && <Badge tone="red">Reported</Badge>}
       {q.editedAt && <Badge tone="sky">Edited</Badge>}
       {p?.archived && <Badge>Archived</Badge>}
+      {q.yield === 'high' && <Badge tone="green">High yield</Badge>}
     </>
   );
 }

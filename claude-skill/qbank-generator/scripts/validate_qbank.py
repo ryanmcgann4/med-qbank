@@ -13,6 +13,7 @@ import sys
 from collections import Counter
 
 TYPES = {"clinical_vignette", "mechanism", "recall", "lab_interpretation", "image_based"}
+YIELDS = {"high", "low"}
 LETTERS = ["A", "B", "C", "D", "E"]
 LETTER_REF = re.compile(
     r"\b(?:option|choice|answer|letter)\s*\(?[A-E]\)?(?![\w-])"  # "option C", "choice (B)"
@@ -101,6 +102,7 @@ def check(data):
 
     qids = set()
     per_lecture = Counter()
+    high_per_lecture = Counter()
     covered = {lid: set() for lid in lecture_ids}
     keys = Counter()
     for i, q in enumerate(questions):
@@ -125,6 +127,11 @@ def check(data):
             err(where, f'type "{q.get("type")}" must be one of {", ".join(sorted(TYPES))}')
         elif q["type"] == "image_based":
             warn(where, "avoid image_based; describe the image in the stem and use another type")
+        y = q.get("yield")
+        if y not in YIELDS:
+            err(where, f'yield must be "high" or "low" (got {json.dumps(y)})')
+        elif y == "high" and lid in lecture_ids:
+            high_per_lecture[lid] += 1
         d = q.get("difficulty")
         if not (isinstance(d, int) and not isinstance(d, bool) and 1 <= d <= 5):
             err(where, "difficulty must be a whole number 1-5")
@@ -196,6 +203,11 @@ def check(data):
             continue
         if per_lecture[lid] < 6:
             warn(f"lecture {lid}", f"only {per_lecture[lid]} questions (aim for 8-15 per hour of lecture)")
+        n, high = per_lecture[lid], high_per_lecture[lid]
+        # About half of each lecture is high yield; small lectures get one question of slack.
+        lo, hi = (0.4 * n, 0.6 * n) if n >= 10 else (n / 2 - 1, n / 2 + 1)
+        if not lo <= high <= hi:
+            warn(f"lecture {lid}", f"{high}/{n} questions are high yield; rate about half high (the most testable) and half low")
         missing = [o for o in objs if norm(o) not in covered[lid]]
         if missing:
             warn(f"lecture {lid}", "objectives with no question: " + "; ".join(missing))

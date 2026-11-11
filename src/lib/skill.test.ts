@@ -29,6 +29,7 @@ describe('Claude skill validator', () => {
     f.questions[1].options = f.questions[1].options.slice(0, 4);
     f.questions[2].correct_option = 'Z';
     f.questions[3].stem = 'Which of the following is NOT true?';
+    delete f.questions[4].yield;
     const path = join(tmpdir(), `qbank-bad-${Date.now()}.json`);
     writeFileSync(path, JSON.stringify(f));
     const r = validate(path);
@@ -37,6 +38,17 @@ describe('Claude skill validator', () => {
     expect(r.out).toContain('exactly 5 with ids A-E');
     expect(r.out).toContain('correct_option "Z"');
     expect(r.out).toContain('negatively phrased stem');
+    expect(r.out).toContain('yield must be "high" or "low"');
+  });
+
+  it('warns when a lecture is not about half high yield', () => {
+    const f = sample();
+    for (const q of f.questions) q.yield = 'high';
+    const path = join(tmpdir(), `qbank-yield-${Date.now()}.json`);
+    writeFileSync(path, JSON.stringify(f));
+    const r = validate(path);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('6/6 questions are high yield');
   });
 
   it('SKILL.md has valid frontmatter', () => {

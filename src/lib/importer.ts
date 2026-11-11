@@ -1,5 +1,5 @@
 import { db as defaultDb, type QBankDB, type StoredLecture, type StoredQuestion } from '../db';
-import { classifyQuestions, defaultResolution, freeQid, type Classified, type Resolution } from './dedupe';
+import { classifyQuestions, defaultResolution, freeQid, ratingChanged, type Classified, type Resolution } from './dedupe';
 import { ensureOrganization } from './org';
 import { validateText, type FileValidation } from './validate';
 
@@ -120,7 +120,8 @@ export async function applyImport(
           outcome.qids.push(item.question.qid);
         } else if (resolution === 'overwrite' && item.existing) {
           const qid = item.existing.qid;
-          await database.questions.put({ ...base, qid, importedAt: item.existing.importedAt });
+          // A file without ratings doesn't wipe out the rating the question already has.
+          await database.questions.put({ ...base, qid, yield: base.yield ?? item.existing.yield, importedAt: item.existing.importedAt });
           outcome.overwritten++;
           outcome.qids.push(qid);
         } else if (resolution === 'keep_both') {
@@ -130,6 +131,10 @@ export async function applyImport(
           outcome.keptBoth++;
           outcome.qids.push(qid);
         } else {
+          if (item.kind === 'identical' && item.existing && ratingChanged(item.question, item.existing)) {
+            // Same question with a new high/low yield rating: take the rating, keep everything else.
+            await database.questions.update(item.existing.qid, { yield: item.question.yield, updatedAt: now });
+          }
           outcome.skipped++;
         }
       }

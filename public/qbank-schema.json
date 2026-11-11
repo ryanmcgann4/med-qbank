@@ -94,6 +94,13 @@
             "minimum": 1,
             "maximum": 5
           },
+          "yield": {
+            "type": "string",
+            "enum": [
+              "high",
+              "low"
+            ]
+          },
           "stem": {
             "type": "string",
             "minLength": 1

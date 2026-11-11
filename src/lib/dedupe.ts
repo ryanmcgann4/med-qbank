@@ -48,8 +48,14 @@ function canonical(q: Question): string {
   return JSON.stringify(pick);
 }
 
+/** Same content. The high/low yield rating isn't content: re-rating a question doesn't make it a different one. */
 export function sameContent(a: Question, b: Question): boolean {
   return canonical(a) === canonical(b);
+}
+
+/** The file rates a question differently than the bank, and you haven't edited it in the app. */
+export function ratingChanged(incoming: Question, existing: ExistingQuestion): boolean {
+  return !!incoming.yield && incoming.yield !== existing.yield && !existing.editedAt;
 }
 
 export function classifyQuestions<E extends ExistingQuestion>(

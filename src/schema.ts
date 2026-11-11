@@ -18,6 +18,14 @@ export const QUESTION_TYPES = [
 
 export const QuestionTypeSchema = z.enum(QUESTION_TYPES);
 
+/**
+ * How likely the tested fact is to show up on an exam. Each lecture's
+ * questions are split about in half: the more testable half is "high".
+ * Optional so files written before ratings existed still import.
+ */
+export const YIELDS = ['high', 'low'] as const;
+export const YieldSchema = z.enum(YIELDS);
+
 /** Single capital letter: A, B, C... */
 export const OptionIdSchema = z
   .string()
@@ -41,6 +49,7 @@ export const QuestionSchema = z
     lecture_id: z.string().trim().min(1, 'must not be empty'),
     type: QuestionTypeSchema,
     difficulty: z.number().int().min(1).max(5),
+    yield: YieldSchema.optional(),
     stem: z.string().trim().min(1, 'must not be empty'),
     options: z.array(OptionSchema).min(2, 'needs at least 2 options').max(8, 'at most 8 options'),
     correct_option: OptionIdSchema,
@@ -102,6 +111,7 @@ export const QBankEnvelopeSchema = z.object({
 });
 
 export type QuestionType = z.infer<typeof QuestionTypeSchema>;
+export type Yield = z.infer<typeof YieldSchema>;
 export type Option = z.infer<typeof OptionSchema>;
 export type Question = z.infer<typeof QuestionSchema>;
 export type Lecture = z.infer<typeof LectureSchema>;
@@ -114,6 +124,11 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   recall: 'Recall',
   lab_interpretation: 'Lab interpretation',
   image_based: 'Image-based',
+};
+
+export const YIELD_LABELS: Record<Yield, string> = {
+  high: 'High yield',
+  low: 'Low yield',
 };
 
 export function buildJsonSchema(): Record<string, unknown> {

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Lecture, Question, QuestionType } from './schema';
+import type { Lecture, Question, QuestionType, Yield } from './schema';
 
 export type Confidence = 'sure' | 'unsure' | 'guess';
 export type Result = 'correct' | 'wrong';
@@ -129,9 +129,13 @@ export interface QuizFilters {
   tags: string[];
   types: QuestionType[];
   difficulties: number[];
+  /** High / low yield; `unrated` = questions without a rating. Missing in quizzes saved before ratings existed. */
+  yields?: YieldFilter[];
   /** A question matches if it has ANY of these statuses. Empty = all. */
   statuses: StatusKey[];
 }
+
+export type YieldFilter = Yield | 'unrated';
 
 export interface QuizConfig {
   mode: QuizMode;

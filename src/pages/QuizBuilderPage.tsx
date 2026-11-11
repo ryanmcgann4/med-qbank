@@ -3,14 +3,14 @@ import { CalendarRange, Folder as FolderIcon, Search, Shuffle, Sparkles, Target,
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Button, Card, Chip, cn, Field, inputClass, PageHeader, SectionTitle } from '../components/ui';
-import { db, STATUS_KEYS, type Folder, type QuizConfig, type QuizFilters, type QuizMode, type StatusKey } from '../db';
+import { db, STATUS_KEYS, type Folder, type QuizConfig, type QuizFilters, type QuizMode, type StatusKey, type YieldFilter } from '../db';
 import { useCandidates } from '../hooks/useBank';
 import { formatDuration } from '../lib/dates';
 import { autoNames, buildTree, lecturesUnder } from '../lib/org';
 import { dayKey, defaultConfig, eligiblePool, matchesFilters, MODE_LABELS, weekKey } from '../lib/selection';
 import { hasStatus, STATUS_LABELS } from '../lib/status';
 import { createQuiz } from '../lib/tracking';
-import { QUESTION_TYPE_LABELS, QUESTION_TYPES, type QuestionType } from '../schema';
+import { QUESTION_TYPE_LABELS, QUESTION_TYPES, YIELD_LABELS, type QuestionType } from '../schema';
 
 const MODES: { mode: QuizMode; icon: ReactNode; desc: string }[] = [
   { mode: 'smart', icon: <Sparkles className="h-5 w-5" />, desc: 'Due reviews → misses → unseen → the rest' },
@@ -20,7 +20,13 @@ const MODES: { mode: QuizMode; icon: ReactNode; desc: string }[] = [
   { mode: 'exam', icon: <Timer className="h-5 w-5" />, desc: 'Timed, NBME-style, feedback at the end' },
 ];
 
-const LIST_KEYS = ['courses', 'weeks', 'days', 'lectures', 'tags', 'types', 'difficulties', 'statuses'] as const;
+const LIST_KEYS = ['yields', 'courses', 'weeks', 'days', 'lectures', 'tags', 'types', 'difficulties', 'statuses'] as const;
+
+const YIELD_CHIPS: { key: YieldFilter; label: string }[] = [
+  { key: 'high', label: YIELD_LABELS.high },
+  { key: 'low', label: YIELD_LABELS.low },
+  { key: 'unrated', label: 'Not rated' },
+];
 
 function configFromParams(params: URLSearchParams): QuizConfig {
   const c = defaultConfig();
@@ -60,8 +66,8 @@ export function QuizBuilderPage() {
 
   const f = config.filters;
   const setFilters = (patch: Partial<QuizFilters>) => setConfig((c) => ({ ...c, filters: { ...c.filters, ...patch } }));
-  const toggle = <K extends keyof QuizFilters>(k: K, v: QuizFilters[K][number]) => {
-    const list = f[k] as unknown[];
+  const toggle = <K extends keyof QuizFilters>(k: K, v: NonNullable<QuizFilters[K]>[number]) => {
+    const list = (f[k] ?? []) as unknown[];
     setFilters({ [k]: list.includes(v) ? list.filter((x) => x !== v) : [...list, v] } as Partial<QuizFilters>);
   };
 
@@ -77,7 +83,9 @@ export function QuizBuilderPage() {
     const tags = new Map<string, number>();
     const types = new Map<QuestionType, number>();
     const diffs = new Map<number, number>();
+    const yields: Record<YieldFilter, number> = { high: 0, low: 0, unrated: 0 };
     for (const c of all) {
+      yields[c.q.yield ?? 'unrated']++;
       const l = c.lecture;
       if (l) {
         courses.set(l.course, (courses.get(l.course) ?? 0) + 1);
@@ -109,6 +117,7 @@ export function QuizBuilderPage() {
       tags: [...tags].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])),
       types: QUESTION_TYPES.filter((t) => types.has(t)).map((t) => [t, types.get(t)!] as const),
       diffs: [1, 2, 3, 4, 5].map((d) => [d, diffs.get(d) ?? 0] as const),
+      yields,
       statuses,
     };
   }, [cands]);
@@ -119,7 +128,7 @@ export function QuizBuilderPage() {
   const eligible = eligiblePool(cands, effective, now).length;
   const serve = Math.min(config.count, eligible);
   const needsWeek = config.mode === 'weekly' && f.weeks.length === 0;
-  const activeFilters = LIST_KEYS.reduce((n, k) => n + f[k].length, 0) + folderSel.length;
+  const activeFilters = LIST_KEYS.reduce((n, k) => n + (f[k]?.length ?? 0), 0) + folderSel.length;
 
   const lecturesByDay = new Map<string, { label: string; course: string; items: (typeof facets.lectures)[number][] }>();
   for (const entry of facets.lectures) {
@@ -271,6 +280,14 @@ export function QuizBuilderPage() {
           )}
         </div>
         <div className="space-y-5">
+          <FilterGroup label="Yield" hint="high = most likely to be on the exam">
+            {YIELD_CHIPS.filter(({ key }) => key !== 'unrated' || facets.yields.unrated > 0 || f.yields?.includes('unrated')).map(({ key, label }) => (
+              <Chip key={key} selected={!!f.yields?.includes(key)} onClick={() => toggle('yields', key)} count={facets.yields[key]}>
+                {label}
+              </Chip>
+            ))}
+          </FilterGroup>
+
           <FilterGroup label="Status" hint="matches any selected">
             {STATUS_KEYS.map((k) => (
               <Chip key={k} selected={f.statuses.includes(k)} onClick={() => toggle('statuses', k)} count={facets.statuses[k]}>

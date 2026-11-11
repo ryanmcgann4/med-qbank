@@ -105,7 +105,7 @@ options by letter, because the app shuffles them.
 | Weekly review | One week, weighted toward weak lectures and questions you missed or guessed on |
 | Exam simulation | Timed (90 s/question by default). Feedback is hidden until you end the block, and blanks count against the score but stay "unseen" in your bank |
 
-Filters cover course, week, day, lecture, tag, question type, difficulty, and
+Filters cover yield, course, week, day, lecture, tag, question type, difficulty, and
 status (unseen, missed, ever missed, lucky guess, flagged, due, mastered,
 reported). Question and option order are shuffled. Answers are stored against
 the original option ids, so the display letters don't matter. Questions you got
@@ -142,6 +142,24 @@ scheduled like a guess, so it comes back tomorrow. Exam simulation has no hints.
 After a quiz: score, time, confidence check, every question re-openable, and
 one-click **Re-quiz my misses**. Ending a tutor quiz early scores only what you
 answered and offers **Finish the N unanswered**.
+
+## High and low yield
+
+Every question Claude writes is rated **high yield** or **low yield**: how
+likely its fact is to be on the exam. Each lecture's questions are split about
+in half, so the high-yield half covers every lecture. High means the core of a
+learning objective, something the lecturer emphasized, a practice question from
+the slides (always high), or classic board material; low means side details,
+exceptions, one-off numbers, or a second angle on a concept another question
+already covers.
+
+Short on time? Pick **Yield → High yield** in the quiz builder (or **High yield**
+on a lecture's page) and do just that half; come back for **Low yield** when you
+have more time. Questions imported before ratings existed show up as **Not
+rated**. To change a rating, **Edit** the question and pick a different yield;
+your choice sticks even if the day is re-imported. Re-importing a day file with
+new ratings updates the ratings of questions you haven't edited. In Claude chat,
+ask for "high-yield questions" and the connector filters the same way.
 
 ## Exam countdown
 

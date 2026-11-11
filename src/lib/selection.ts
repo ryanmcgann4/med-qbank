@@ -23,7 +23,7 @@ export const MODE_LABELS: Record<QuizMode, string> = {
 };
 
 export function emptyFilters(): QuizFilters {
-  return { courses: [], weeks: [], days: [], lectures: [], tags: [], types: [], difficulties: [], statuses: [] };
+  return { courses: [], weeks: [], days: [], lectures: [], tags: [], types: [], difficulties: [], yields: [], statuses: [] };
 }
 
 export function defaultConfig(): QuizConfig {
@@ -50,6 +50,7 @@ export function matchesFilters(c: Candidate, f: QuizFilters, now: number): boole
   }
   if (f.types.length && !f.types.includes(c.q.type)) return false;
   if (f.difficulties.length && !f.difficulties.includes(c.q.difficulty)) return false;
+  if (f.yields?.length && !f.yields.includes(c.q.yield ?? 'unrated')) return false;
   if (f.statuses.length && !f.statuses.some((s) => hasStatus(c.progress, s, now))) return false;
   return true;
 }

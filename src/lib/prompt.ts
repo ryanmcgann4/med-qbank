@@ -87,6 +87,7 @@ If any value above is still in [brackets], infer it from the attached files. If 
       "lecture_id": "${idPrefix}-L1",
       "type": "clinical_vignette",
       "difficulty": 3,
+      "yield": "high",
       "stem": "A 54-year-old man presents with ... Which of the following is the most likely ...?",
       "options": [
         { "id": "A", "text": "...", "explanation": "Why this option is right or wrong." },
@@ -110,6 +111,7 @@ If any value above is still in [brackets], infer it from the attached files. If 
 - qid: <lecture_id>-Q<nnn>, zero-padded to 3 digits and restarting at Q001 for each lecture (e.g. ${idPrefix}-L2-Q007). Every qid must be unique.
 - type: one of "clinical_vignette", "mechanism", "recall", "lab_interpretation", "image_based". Don't use "image_based"; describe imaging, histology, or gross findings in words in the stem instead.
 - difficulty: integer 1–5 (3 = a typical Step 1 question). Use mostly 2–4.
+- yield: "high" or "low", how likely the fact is to be on the exam. Rank each lecture's questions from most to least testable and mark the top half "high", the rest "low" (about 50/50 per lecture). High = the core of a learning objective, something the lecturer emphasized (summary/key-point slides, repeated, "know this"), a practice question from the slides (always high), or classic board material (mechanism of action, classic presentation, the feature that separates look-alikes, dangerous adverse effects, core equations). Low = side details, exceptions, rare variants, history, research studies, guest-speaker stories, numbers mentioned once, or a second angle on a concept another question already covers. Yield is about content, not difficulty.
 - options: exactly 5, with ids "A" through "E". correct_option is the id of the single best answer.
 - source.slides: the slide number(s) the question is based on, as a string, e.g. "12" or "12-14". source.objective: the learning objective it tests.
 - tags: 2–5 short lowercase tags: organ system, discipline, and specific topic (e.g. "renal", "pharmacology", "loop-diuretics").

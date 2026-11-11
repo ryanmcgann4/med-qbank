@@ -39,6 +39,7 @@
       "lecture_id": "B2-W6-D1-L1",
       "type": "clinical_vignette",
       "difficulty": 2,
+      "yield": "high",
       "stem": "A 58-year-old man with type 2 diabetes mellitus and heart failure with reduced ejection fraction is started on empagliflozin. Two weeks later, his urinalysis shows 3+ glucose; his fasting plasma glucose is 132 mg/dL. Inhibition of which of the following transporters is most directly responsible for his glucosuria?",
       "options": [
         { "id": "A", "text": "GLUT2 on the basolateral membrane of proximal tubule cells", "explanation": "GLUT2 moves reabsorbed glucose out of the cell into the interstitium by facilitated diffusion. It is not the drug target; gliflozins act on apical Na+-coupled entry, not basolateral exit." },
@@ -59,6 +60,7 @@
       "lecture_id": "B2-W6-D1-L1",
       "type": "lab_interpretation",
       "difficulty": 3,
+      "yield": "high",
       "stem": "A 4-year-old boy is evaluated for poor growth and bowing of the legs. Urinalysis shows 2+ glucose, and amino acids are detected in the urine. Laboratory studies show:\n\nSerum glucose: 88 mg/dL (70–100)\nSerum phosphate: 2.1 mg/dL (4.0–6.5 for age)\nSerum bicarbonate: 16 mEq/L (22–28)\nSerum chloride: 112 mEq/L (98–107)\nSerum potassium: 3.2 mEq/L (3.5–5.0)\n\nDysfunction of which of the following nephron segments best explains these findings?",
       "options": [
         { "id": "A", "text": "Glomerulus", "explanation": "Glomerular disease causes proteinuria (nephrotic pattern) or hematuria with reduced GFR (nephritic pattern). It does not cause selective urinary loss of glucose, amino acids, phosphate, and bicarbonate with a normal serum glucose." },
@@ -79,6 +81,7 @@
       "lecture_id": "B2-W6-D1-L1",
       "type": "recall",
       "difficulty": 1,
+      "yield": "low",
       "stem": "In a healthy adult on a normal-sodium diet, approximately what fraction of the filtered load of Na+ is reabsorbed in the proximal convoluted tubule?",
       "options": [
         { "id": "A", "text": "About 3%", "explanation": "This is roughly the fraction reabsorbed in the collecting duct, where aldosterone fine-tunes Na+ balance through ENaC." },
@@ -99,6 +102,7 @@
       "lecture_id": "B2-W6-D1-L1",
       "type": "mechanism",
       "difficulty": 3,
+      "yield": "high",
       "stem": "A 25-year-old woman planning a trek to 4,500 m (14,800 ft) begins taking acetazolamide the day before her ascent. Which of the following changes in her urine is most likely within hours of the first dose?",
       "options": [
         { "id": "A", "text": "Decreased HCO3− excretion and decreased urine pH", "explanation": "This is the opposite effect. It describes increased proximal bicarbonate reabsorption, as occurs with respiratory acidosis or volume depletion with high angiotensin II." },
@@ -119,6 +123,7 @@
       "lecture_id": "B2-W6-D1-L1",
       "type": "clinical_vignette",
       "difficulty": 3,
+      "yield": "low",
       "stem": "A 52-year-old woman is evaluated for recurrent kidney stones. Serum calcium is 11.4 mg/dL (8.5–10.5), serum phosphate is 2.2 mg/dL (2.5–4.5), and serum parathyroid hormone (PTH) is elevated. Which of the following best explains her low serum phosphate?",
       "options": [
         { "id": "A", "text": "Decreased Na+-phosphate cotransport in the proximal tubule", "explanation": "Correct. PTH causes internalization of NaPi-IIa cotransporters from the PCT brush border, reducing phosphate reabsorption and causing phosphaturia." },
@@ -139,6 +144,7 @@
       "lecture_id": "B2-W6-D1-L1",
       "type": "mechanism",
       "difficulty": 3,
+      "yield": "low",
       "stem": "A 30-year-old woman has had persistent vomiting for 3 days due to viral gastroenteritis. She is orthostatic, and her plasma renin and angiotensin II levels are elevated. Angiotensin II increases proximal tubular Na+ reabsorption in this patient primarily by stimulating which of the following?",
       "options": [
         { "id": "A", "text": "Apical H+/K+-ATPase", "explanation": "H+/K+-ATPase is found on α-intercalated cells of the collecting duct, where it secretes H+ and reabsorbs K+. It matters in hypokalemia, not in proximal Na+ reabsorption." },
@@ -159,6 +165,7 @@
       "lecture_id": "B2-W6-D1-L2",
       "type": "clinical_vignette",
       "difficulty": 3,
+      "yield": "high",
       "stem": "A 68-year-old man with hypertension and peripheral artery disease is started on lisinopril. One week later, his serum creatinine has risen from 1.1 to 2.0 mg/dL. Renal artery duplex ultrasonography shows severe stenosis of both renal arteries. Which of the following best explains the decrease in his glomerular filtration rate?",
       "options": [
         { "id": "A", "text": "Increased oncotic pressure in the glomerular capillaries", "explanation": "A higher plasma protein concentration would oppose filtration, but ACE inhibitors do not change plasma oncotic pressure." },
@@ -179,6 +186,7 @@
       "lecture_id": "B2-W6-D1-L2",
       "type": "lab_interpretation",
       "difficulty": 2,
+      "yield": "low",
       "stem": "During a research study, inulin is infused to a steady-state plasma concentration in a healthy volunteer. The following values are measured:\n\nPlasma inulin: 1.0 mg/mL\nUrine inulin: 100 mg/mL\nUrine flow rate: 1.2 mL/min\n\nWhich of the following is this person's glomerular filtration rate?",
       "options": [
         { "id": "A", "text": "1.2 mL/min", "explanation": "This is just the urine flow rate (V). It ignores how concentrated inulin is in the urine relative to plasma." },
@@ -199,6 +207,7 @@
       "lecture_id": "B2-W6-D1-L2",
       "type": "lab_interpretation",
       "difficulty": 3,
+      "yield": "low",
       "stem": "In a healthy 35-year-old woman, the clearance of para-aminohippuric acid (PAH) is 600 mL/min and her hematocrit is 40%. Which of the following is her approximate renal blood flow?",
       "options": [
         { "id": "A", "text": "240 mL/min", "explanation": "This is 600 × 0.40, the red cell fraction rather than whole blood. Divide by (1 − Hct) instead of multiplying by Hct." },
@@ -219,6 +228,7 @@
       "lecture_id": "B2-W6-D1-L2",
       "type": "mechanism",
       "difficulty": 4,
+      "yield": "high",
       "stem": "An investigational drug selectively constricts the efferent arterioles of the glomeruli without changing systemic blood pressure. Compared with baseline, which of the following sets of changes is most likely shortly after a moderate dose?",
       "options": [
         { "id": "A", "text": "RPF ↓, GFR ↓, filtration fraction unchanged", "explanation": "This pattern is afferent arteriolar constriction, as with NSAIDs blocking prostaglandin-mediated afferent dilation or with intense sympathetic stimulation." },

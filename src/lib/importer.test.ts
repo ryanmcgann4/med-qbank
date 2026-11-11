@@ -38,6 +38,21 @@ describe('import', () => {
     expect(await db.questions.count()).toBe(10);
   });
 
+  it('takes a new high/low yield rating for questions already in the bank, without touching them otherwise', async () => {
+    await applyImport(await planImport(src(sampleText()), db), {}, db);
+    const qid = 'B2-W6-D1-L1-Q003';
+    expect((await db.questions.get(qid))?.yield).toBe('low');
+    const f = sample();
+    f.questions[2].yield = 'high';
+    delete f.questions[3].yield; // a file without a rating keeps the existing one
+    const plan = await planImport(src(JSON.stringify(f)), db);
+    expect(plan.items.every((i) => i.kind === 'identical')).toBe(true);
+    const out = await applyImport(plan, {}, db);
+    expect(out).toMatchObject({ added: 0, skipped: 10 });
+    expect((await db.questions.get(qid))?.yield).toBe('high');
+    expect((await db.questions.get('B2-W6-D1-L1-Q004'))?.yield).toBe('high');
+  });
+
   it('never wipes progress: overwrite keeps history, keep-both adds a ~2 copy, skip changes nothing', async () => {
     await applyImport(await planImport(src(sampleText()), db), {}, db);
     const qid = 'B2-W6-D1-L1-Q001';

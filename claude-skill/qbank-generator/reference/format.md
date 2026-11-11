@@ -26,6 +26,7 @@ quotes only, no comments, no trailing commas, no `...` placeholders.
       "lecture_id": "B2-W6-D2-L1",
       "type": "clinical_vignette",
       "difficulty": 3,
+      "yield": "high",
       "stem": "A 54-year-old man presents with ... Which of the following is the most likely ...?",
       "options": [
         { "id": "A", "text": "...", "explanation": "Why this option is right or wrong." },
@@ -61,6 +62,7 @@ quotes only, no comments, no trailing commas, no `...` placeholders.
 | `qid` | `<lecture_id>-Q<nnn>`: 3 digits, restarting at Q001 for each lecture. Unique. |
 | `type` | One of `clinical_vignette`, `mechanism`, `recall`, `lab_interpretation`, `image_based`. Don't use `image_based`; describe images in words instead. |
 | `difficulty` | Integer 1–5 (3 = typical Step 1); mostly 2–4 |
+| `yield` | `"high"` or `"low"`: how likely it is to be on the exam. Rank each lecture's questions and mark the most testable half `"high"`, the rest `"low"` (about 50/50 per lecture). Practice questions from the slides (`from-lecture`) are always `"high"`. See SKILL.md for what counts as high yield. |
 | `options` | Exactly 5, ids `"A"`–`"E"`, each with non-empty `text` and `explanation` |
 | `correct_option` | The id of the single best answer |
 | `source.slides` | String: `"12"` or `"12-14"` |

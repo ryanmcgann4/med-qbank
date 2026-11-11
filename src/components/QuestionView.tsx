@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Confidence, SessionAnswer, StoredLecture, StoredQuestion } from '../db';
 import { letter } from '../lib/selection';
 import { slideLink, slidesOnThisDevice } from '../lib/slides';
-import { QUESTION_TYPE_LABELS } from '../schema';
+import { QUESTION_TYPE_LABELS, YIELD_LABELS } from '../schema';
 import { AskClaude } from './AskClaude';
 import { Badge, cn } from './ui';
 
@@ -152,6 +152,7 @@ export function QuestionView({ question: q, lecture, order, answer, revealed, in
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="indigo">{QUESTION_TYPE_LABELS[q.type]}</Badge>
             <Badge>Difficulty {q.difficulty}/5</Badge>
+            {q.yield && <Badge tone={q.yield === 'high' ? 'green' : 'neutral'}>{YIELD_LABELS[q.yield]}</Badge>}
             {q.tags.map((t) => (
               <Badge key={t}>{t}</Badge>
             ))}

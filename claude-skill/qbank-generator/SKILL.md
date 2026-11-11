@@ -68,6 +68,26 @@ Question standards (NBME style):
   to build a realistic vignette.
 - Spread questions across the whole lecture; use mostly difficulty 2–4.
 
+Yield (`"high"` or `"low"`, required on every question): how likely the
+fact is to show up on the exam. The user studies only the high-yield half when
+short on time, so the split has to be honest:
+- Rank each lecture's questions from most to least testable, then mark the
+  top half `"high"` and the rest `"low"` (about 50/50 per lecture; with an odd
+  count the middle question goes where it fits best).
+- **High** when the question tests the core of a stated learning objective;
+  something the lecturer emphasized (summary, key-points or "take-home" slides,
+  repeated across slides, "know this"); a practice question from the slides
+  (`from-lecture` is always high); or classic board material (mechanism of
+  action, classic presentation → diagnosis, the feature that tells two look-alikes
+  apart, a dangerous adverse effect or contraindication, a core equation or
+  relationship).
+- **Low** when it tests a side detail, exception, rare variant, history,
+  research study, guest-speaker story, or a number or list item mentioned once;
+  or when it's a second angle on a concept another question already covers
+  (the best question on that concept is high, the extra ones low).
+- Yield is about the content, not difficulty: a hard question on a core
+  concept is still high.
+
 Explanations:
 - `explanation`: 3–6 sentences teaching the concept (why the answer is right,
   plus the underlying physiology/pathology/pharmacology).
@@ -88,7 +108,8 @@ python3 scripts/validate_qbank.py <file.json>
 Fix every **ERROR** and re-run until it reports none. Then fix the
 **WARNINGS** that point to real problems: uncovered objectives (write the
 missing questions), lopsided answer letters (rebalance which option is
-correct), or too few questions for a lecture. Re-run after changes.
+correct), a lecture that isn't about half high yield (re-rank it), or too few
+questions for a lecture. Re-run after changes.
 
 If you can't run code, check the same things by hand against
 `reference/format.md` before replying.
@@ -100,8 +121,8 @@ If you can't run code, check the same things by hand against
   (e.g. `/mnt/user-data/outputs/`) so the user gets a download link.
 - If you can't create files, reply with ONE ```json code block containing the
   complete file and nothing else.
-- After the file, add one short line: lectures covered, number of questions,
-  and the validator result. Don't paste the questions into the chat.
+- After the file, add one short line: lectures covered, number of questions
+  (with how many are high yield), and the validator result. Don't paste the questions into the chat.
 
 If the content is too long for one reply, ask the user whether to split the day
 into two files (e.g. L1–L2, then L3–L4). Never truncate the JSON.

@@ -5,7 +5,7 @@
  * the Mac's "Make Q-Bank Questions" action (scripts/qbank-local.ts).
  */
 import type { StoredLecture } from '../../src/db';
-import { classifyQuestions } from '../../src/lib/dedupe';
+import { classifyQuestions, ratingChanged } from '../../src/lib/dedupe';
 import { contentHash } from '../../src/lib/hash';
 import type { BackupData } from '../../src/lib/merge';
 import { autoChain } from '../../src/lib/org';
@@ -26,6 +26,7 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
     day: v.meta.day_label,
     imported: added.length,
     already_in_bank: classified.filter((c) => c.kind === 'identical' || c.kind === 'batch_duplicate').length,
+    yield_updated: classified.filter((c) => c.kind === 'identical' && c.existing && ratingChanged(c.question, c.existing)).length,
     conflicts: classified
       .filter((c) => c.kind === 'qid_conflict' || c.kind === 'content_duplicate')
       .map((c) => `${c.question.qid}: ${c.kind === 'qid_conflict' ? 'same qid, different content' : `same question as ${c.existing?.qid}`} (resolve by importing the file in the app)`),
@@ -63,6 +64,12 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
     data.lectures = [...data.lectures.filter((x) => x.lecture_id !== l.lecture_id), fresh];
   }
   for (const c of added) data.questions.push({ ...c.question, hash: contentHash(c.question), importedAt: now, updatedAt: now, editedAt: null });
+  // Questions already in the bank that the file now rates high/low yield take the new rating.
+  const rerated = classified.filter((c) => c.kind === 'identical' && c.existing && ratingChanged(c.question, c.existing));
+  for (const c of rerated) {
+    const i = data.questions.findIndex((q) => q.qid === c.existing!.qid);
+    data.questions[i] = { ...data.questions[i], yield: c.question.yield, updatedAt: now };
+  }
   data.imports.push({
     importedAt: now,
     files: [{ name: fileName, day_label: meta.day_label, course: meta.course, week: meta.week, date: meta.date }],
@@ -73,5 +80,5 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
     skipped: classified.length - added.length,
     invalid: v.skipped.length,
   });
-  return { change: { data, message: `Import ${meta.day_label} from Claude (${added.length} questions)` }, report };
+  return { change: { data, message: `Import ${meta.day_label} from Claude (${added.length} questions${rerated.length ? `, ${rerated.length} re-rated` : ''})` }, report };
 }

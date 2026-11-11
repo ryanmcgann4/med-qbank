@@ -40,6 +40,7 @@ const preview = (c: Candidate, now: number) => ({
   stem: c.q.stem.length > 220 ? c.q.stem.slice(0, 220) + '…' : c.q.stem,
   status: statusesOf(c.progress, now),
   record: c.progress?.timesSeen ? `${c.progress.timesCorrect}/${c.progress.timesSeen} correct` : 'unseen',
+  yield: c.q.yield,
 });
 
 const asked = (q: StoredQuestion, l?: StoredLecture) => ({
@@ -207,7 +208,7 @@ export function buildServer(env: Env): McpServer {
     {
       title: 'Start a quiz',
       description:
-        'Pick questions to quiz the user on, WITHOUT answers. Show them one at a time; after the user answers, call qbank_answer. Focus: smart (due → missed → unseen), due, missed, unseen, weak (weighted to weak spots), flagged.',
+        'Pick questions to quiz the user on, WITHOUT answers. Show them one at a time; after the user answers, call qbank_answer. Focus: smart (due → missed → unseen), due, missed, unseen, weak (weighted to weak spots), flagged. yield: "high" for only the questions most likely to be on the exam (e.g. when the user is short on time), "low" for the rest.',
       inputSchema: {
         count: z.number().int().min(1).max(40).default(5),
         focus: z.enum(['smart', 'due', 'missed', 'unseen', 'weak', 'flagged']).default('smart'),
@@ -215,10 +216,11 @@ export function buildServer(env: Env): McpServer {
         course: z.string().optional(),
         week: z.number().int().optional(),
         tags: z.array(z.string()).optional(),
+        yield: z.enum(['high', 'low']).optional(),
       },
       annotations: read,
     },
-    async ({ count, focus, lecture_ids, course, week, tags }) => {
+    async ({ count, focus, lecture_ids, course, week, tags, yield: yieldLevel }) => {
       const { active, lectures, newFirst, released } = await load(env);
       const filters = {
         ...emptyFilters(),
@@ -226,6 +228,7 @@ export function buildServer(env: Env): McpServer {
         courses: course ? [course] : [],
         weeks: course && week !== undefined ? [weekKey(course, week)] : [],
         tags: tags ?? [],
+        yields: yieldLevel ? [yieldLevel] : [],
         statuses: (focus === 'due' ? ['due'] : focus === 'flagged' ? ['flagged'] : []) as StatusKey[],
       };
       const pool = week !== undefined && !course ? active.filter((c) => c.lecture?.week === week) : active;

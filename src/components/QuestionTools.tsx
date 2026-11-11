@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { db, type StoredQuestion } from '../db';
 import { applyEdit, EditError, revertEdit } from '../lib/edit';
 import { updateProgress } from '../lib/tracking';
-import { QUESTION_TYPE_LABELS, QUESTION_TYPES, type Question } from '../schema';
+import { QUESTION_TYPE_LABELS, QUESTION_TYPES, YIELD_LABELS, YIELDS, type Question, type Yield } from '../schema';
 import { formatDate } from '../lib/dates';
 import { Button, Chip, cn, Field, inputClass, Modal } from './ui';
 
@@ -237,7 +237,17 @@ export function EditQuestionModal({ question, onClose }: { question: StoredQuest
               ))}
             </select>
           </Field>
-          <div className="sm:col-span-2">
+          <Field label="Yield">
+            <select className={inputClass} value={draft.yield ?? ''} onChange={(e) => set('yield', (e.target.value || undefined) as Yield | undefined)}>
+              {YIELDS.map((y) => (
+                <option key={y} value={y}>
+                  {YIELD_LABELS[y]}
+                </option>
+              ))}
+              <option value="">Not rated</option>
+            </select>
+          </Field>
+          <div className="sm:col-span-4">
             <Field label="Tags" hint="comma-separated">
               <input className={inputClass} value={tags} onChange={(e) => setTags(e.target.value)} />
             </Field>

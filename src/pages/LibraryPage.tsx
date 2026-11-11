@@ -16,9 +16,10 @@ import { emptyFilters, type Candidate } from '../lib/selection';
 import { isLeech } from '../lib/settings';
 import { hasStatus } from '../lib/status';
 
-type Filter = 'all' | 'flagged' | 'reported' | 'edited' | 'missed' | 'leech' | 'unseen' | 'archived';
+type Filter = 'all' | 'high' | 'flagged' | 'reported' | 'edited' | 'missed' | 'leech' | 'unseen' | 'archived';
 const FILTERS: [Filter, string][] = [
   ['all', 'All'],
+  ['high', 'High yield'],
   ['missed', 'Missed'],
   ['leech', 'Leeches'],
   ['flagged', 'Flagged'],
@@ -39,6 +40,8 @@ function matchesFilter(c: Candidate, f: Filter, now: number, leechAt: number): b
       return isLeech(c.progress, leechAt);
     case 'edited':
       return !!c.q.editedAt;
+    case 'high':
+      return c.q.yield === 'high';
     default:
       return hasStatus(c.progress, f, now);
   }
@@ -185,6 +188,7 @@ function LectureDetail({ lectureId, cands, lectures, tree }: { lectureId: string
 
   const s = lectureStats(mine);
   const unseen = active.filter((c) => hasStatus(c.progress, 'unseen', now)).length;
+  const high = active.filter((c) => c.q.yield === 'high').length;
   const filters = { ...emptyFilters(), lectures: [lectureId] };
   const objectiveCount = (o: string) => {
     const n = normalizeText(o);
@@ -243,6 +247,11 @@ function LectureDetail({ lectureId, cands, lectures, tree }: { lectureId: string
         <Button variant="secondary" disabled={busy || !unseen} onClick={() => start({ mode: 'unseen', count: 50, filters }, `${l.title} · unseen`)}>
           Unseen only ({unseen})
         </Button>
+        {high > 0 && (
+          <Button variant="secondary" disabled={busy} onClick={() => start({ mode: 'smart', count: high, filters: { ...filters, yields: ['high'] } }, `${l.title} · high yield`)}>
+            High yield ({high})
+          </Button>
+        )}
         <Button
           variant="secondary"
           disabled={busy || !active.length}

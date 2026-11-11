@@ -4,7 +4,7 @@ import { contentHash } from './hash';
 import { formatPath } from './validate';
 
 const CONTENT_KEYS = [
-  'qid', 'lecture_id', 'type', 'difficulty', 'stem', 'options', 'correct_option',
+  'qid', 'lecture_id', 'type', 'difficulty', 'yield', 'stem', 'options', 'correct_option',
   'explanation', 'key_takeaway', 'source', 'tags', 'image_url',
 ] as const;
 
@@ -31,6 +31,8 @@ export function applyEdit(q: StoredQuestion, edited: Question, now = Date.now())
   return {
     ...q,
     ...parsed.data,
+    // Explicit, so choosing "Not rated" clears a rating.
+    yield: parsed.data.yield,
     hash: contentHash(parsed.data),
     updatedAt: now,
     editedAt: now,

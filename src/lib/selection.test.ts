@@ -21,9 +21,9 @@ const lec = (id: string, week: number, course = 'Block 2'): StoredLecture => ({
   importedAt: 0,
 });
 
-function cand(qid: string, opts: { lecture?: StoredLecture; progress?: Partial<Progress>; tags?: string[]; difficulty?: number } = {}): Candidate {
+function cand(qid: string, opts: { lecture?: StoredLecture; progress?: Partial<Progress>; tags?: string[]; difficulty?: number; yield?: 'high' | 'low' } = {}): Candidate {
   const lecture = opts.lecture ?? lec('L1', 6);
-  const q = makeQuestion({ qid, lecture_id: lecture.lecture_id, stem: `stem ${qid}`, tags: opts.tags ?? ['renal'], difficulty: opts.difficulty ?? 3 });
+  const q = makeQuestion({ qid, lecture_id: lecture.lecture_id, stem: `stem ${qid}`, tags: opts.tags ?? ['renal'], difficulty: opts.difficulty ?? 3, yield: opts.yield });
   return {
     q: { ...q, hash: contentHash(q), importedAt: 0, updatedAt: 0, editedAt: null },
     lecture,
@@ -55,6 +55,16 @@ describe('filters and modes', () => {
     expect(ids(eligiblePool(pool, cfg({ filters: { ...f, difficulties: [1] } }), NOW))).toEqual(['unseen-6']);
     expect(ids(eligiblePool(pool, cfg({ filters: { ...f, statuses: ['flagged', 'missed'] } }), NOW))).toEqual(['missed-6', 'flagged-7']);
     expect(ids(eligiblePool(pool, cfg({ filters: { ...f, days: [dayKey('Block 2', 'Week 6 – Day 1')] } }), NOW))).toEqual(['unseen-6', 'missed-6']);
+  });
+
+  it('filters by yield, with unrated questions as their own choice', () => {
+    const f = defaultConfig().filters;
+    const rated = [cand('hi', { yield: 'high' }), cand('lo', { yield: 'low' }), cand('none')];
+    expect(ids(eligiblePool(rated, cfg({ filters: { ...f, yields: ['high'] } }), NOW))).toEqual(['hi']);
+    expect(ids(eligiblePool(rated, cfg({ filters: { ...f, yields: ['low', 'unrated'] } }), NOW))).toEqual(['lo', 'none']);
+    // Quizzes saved before ratings existed have no yields filter at all.
+    const { yields: _y, ...old } = f;
+    expect(ids(eligiblePool(rated, cfg({ filters: old }), NOW))).toEqual(['hi', 'lo', 'none']);
   });
 
   it('unseen mode and missed mode', () => {
