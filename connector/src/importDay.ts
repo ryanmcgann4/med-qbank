@@ -9,10 +9,25 @@ import { classifyQuestions, ratingChanged } from '../../src/lib/dedupe';
 import { contentHash } from '../../src/lib/hash';
 import type { BackupData } from '../../src/lib/merge';
 import { autoChain } from '../../src/lib/org';
+import { randomId } from '../../src/lib/rng';
 import { validateText } from '../../src/lib/validate';
 import type { Change } from './bank';
 
-export function importDay(data: BackupData, fileJson: string, fileName: string, now: number): { change: Change | null; report: Record<string, unknown> } {
+/** Where to file the day's lectures, instead of leaving them where they are (or under Course › Week › Day). */
+export interface FilingOptions {
+  /** A Library folder id; null = the top level. The day's Course › Week › Day folder is created if it's the one picked. */
+  folderId?: string | null;
+  /** Put them in a subfolder with this name inside that folder (reused if it's already there). */
+  newFolder?: string;
+}
+
+export function importDay(
+  data: BackupData,
+  fileJson: string,
+  fileName: string,
+  now: number,
+  filing: FilingOptions = {},
+): { change: Change | null; report: Record<string, unknown> } {
   const known = new Set(data.lectures.map((l) => l.lecture_id));
   const v = validateText(fileJson, fileName, known);
   if (!v.ok || !v.meta) return { change: null, report: { imported: 0, errors: v.fileErrors.map((e) => `${e.field}: ${e.message}`) } };
@@ -22,7 +37,7 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
     data.questions,
   );
   const added = classified.filter((c) => c.kind === 'new');
-  const report = {
+  const report: Record<string, unknown> = {
     day: v.meta.day_label,
     imported: added.length,
     already_in_bank: classified.filter((c) => c.kind === 'identical' || c.kind === 'batch_duplicate').length,
@@ -62,6 +77,33 @@ export function importDay(data: BackupData, fileJson: string, fileName: string, 
       ...(prev?.renamedAt ? { title: prev.title, renamedAt: prev.renamedAt, importedTitle: l.title } : {}),
     };
     data.lectures = [...data.lectures.filter((x) => x.lecture_id !== l.lecture_id), fresh];
+  }
+  if (filing.folderId !== undefined || filing.newFolder?.trim()) {
+    const folders = (data.folders ??= []);
+    const dayChain = autoChain({ course: meta.course, week: meta.week, day_label: meta.day_label });
+    let target: string | null = filing.folderId === undefined ? fileInDay() : filing.folderId;
+    if (target && !folders.some((f) => f.id === target)) {
+      if (dayChain.some((f) => f.id === target)) fileInDay();
+      else {
+        report.warnings = [...((report.warnings as string[] | undefined) ?? []), `Folder ${target} isn't in the Library anymore; filed under the day instead.`];
+        target = fileInDay();
+      }
+    }
+    const name = filing.newFolder?.trim();
+    if (name) {
+      const same = folders.find((f) => f.parentId === target && f.name.trim().toLowerCase() === name.toLowerCase());
+      if (same) target = same.id;
+      else {
+        const f = { id: randomId(), name, parentId: target, updatedAt: now };
+        folders.push(f);
+        target = f.id;
+      }
+    }
+    for (const l of v.lectures) {
+      const i = data.lectures.findIndex((x) => x.lecture_id === l.lecture_id);
+      if (i >= 0 && data.lectures[i].folderId !== target) data.lectures[i] = { ...data.lectures[i], folderId: target, movedAt: now };
+    }
+    report.folder = target;
   }
   for (const c of added) data.questions.push({ ...c.question, hash: contentHash(c.question), importedAt: now, updatedAt: now, editedAt: null });
   // Questions already in the bank that the file now rates high/low yield take the new rating.

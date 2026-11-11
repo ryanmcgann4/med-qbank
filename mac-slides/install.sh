@@ -4,7 +4,8 @@
 #    "Open slides" button opens the lecture file at its slide
 #  - a LaunchAgent that organizes lecture files you drop into the course folder into
 #    Week N/<n Day>/<Lecture>/ (needs schedule.json, from parse_schedule.py); Downloads is left alone
-#  - a Finder Quick Action, "Make Q-Bank Questions", for lecture and day folders
+#  - a Finder Quick Action, "Make Q-Bank Questions", for lecture and day folders, and the window
+#    it opens to choose lectures, files, number of questions, style and Library folder
 #  - the qbank-generator skill, linked into ~/.claude/skills for Claude Code
 #   ./install.sh "/path/to/Block 2" "Block 2" owner/qbank-data   # course folder, its name in Q-Bank, your sync repo
 set -e
@@ -152,6 +153,7 @@ plistlib.dump(doc, open(out, "wb"))
 PY
 /System/Library/CoreServices/pbs -flush 2>/dev/null || true
 echo "Added Finder Quick Action: Make Q-Bank Questions"
+"$DIR/build_window.sh"
 
 # The question-writing skill, for Claude Code (claude -p) to use.
 mkdir -p "$HOME/.claude/skills"

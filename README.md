@@ -204,12 +204,37 @@ also sets up:
   them. Downloads is never touched. Q-Bank day files (`B2_W12_D1_….json`) go
   into their day folder. Run the installer again after adding a new Week folder.
 - **Make Q-Bank Questions** (Finder → right-click a lecture or day folder →
-  Quick Actions). Converts the lecture's PowerPoints to PDF, has Claude Code
-  write and validate the questions with the qbank-generator skill, and adds them
-  to your bank through the sync repo (`scripts/qbank-local.ts`, using `gh`'s
-  GitHub login). A lecture already in the bank keeps its id and gets only new
-  questions. Needs Claude Code signed in (`claude`, then `/login`). Progress
-  and errors go to `~/Library/Logs/Q-Bank Questions.log`.
+  Quick Actions). A window opens first (`mac-slides/QBankQuestions.swift`,
+  built into `~/Applications/Q-Bank Questions.app` by the installer) where you
+  check and adjust everything before Claude starts:
+  - **Lectures:** every lecture folder that day, with the ones you right-clicked
+    ticked and how many questions each already has in your bank.
+  - **Per lecture:** its title in Q-Bank; whether it's a new lecture or adds to
+    one already in the bank (new questions then avoid repeating the old ones);
+    the number of questions (or let Claude decide, 8–15 per hour); which files
+    to use (with slide/page counts); and the **Library folder** it goes in
+    (where it already is, or Course › Week › Day by default), optionally inside
+    a new subfolder.
+  - **For all of them:** questions per lecture, difficulty (easier / exam
+    level / harder), kind (mostly vignettes / mix / mostly concepts), yield
+    (half high and half low, or high-yield material only), whether to include
+    the practice questions on the slides, the Claude model, and free-form notes
+    for Claude ("focus on drug mechanisms").
+  - **When done:** add to Q-Bank, or just save the file in the day folder to
+    look over first. Settings are remembered for next time.
+
+  The window then shows each lecture's progress live (saving slides as PDF,
+  reading the slides, writing, checking, adding to Q-Bank, with the question
+  count as it's written), with **Stop** and **Show Log**. You can close it;
+  the work continues and a notification says when it's done. Behind the
+  window, it converts the PowerPoints to PDF, has Claude Code write and
+  validate the questions with the qbank-generator skill, and adds them to your
+  bank through the sync repo (`scripts/qbank-local.ts`, using `gh`'s GitHub
+  login). Needs Claude Code signed in (`claude`, then `/login`) and `swiftc`
+  for the window (`xcode-select --install`; without it the action runs with
+  your last settings and no window). Errors go to
+  `~/Library/Logs/Q-Bank Questions.log`. To rebuild just the window after
+  editing it: `mac-slides/build_window.sh`.
 
 ## Ask Claude
 
