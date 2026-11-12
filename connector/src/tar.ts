@@ -1,6 +1,6 @@
 /** Minimal reader for the gzipped tarballs GitHub serves (ustar + pax path records). */
 export async function readTarball(gz: ReadableStream<Uint8Array>): Promise<Map<string, string>> {
-  const buf = new Uint8Array(await new Response(gz.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+  const buf = new Uint8Array(await new Response(gz.pipeThrough(new DecompressionStream('gzip') as unknown as TransformStream<Uint8Array, Uint8Array>)).arrayBuffer());
   const text = new TextDecoder();
   const field = (o: number, n: number) => text.decode(buf.subarray(o, o + n)).replace(/\0.*$/s, '');
   const files = new Map<string, string>();
