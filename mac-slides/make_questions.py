@@ -183,12 +183,22 @@ def make_plan(course, week, day, chosen, defaults):
     code = course_code(course)
     day_label = f"Week {week} – Day {day} ({date:%a %b} {date.day})"
     ctx = bank_context(course, week, date, day_label)
+    # macOS lets a Quick Action read only the folders you right-clicked, so the day's other lecture
+    # folders may be off limits when you picked one lecture; then it shows just the ones you picked.
+    try:
+        paths = lecture_folders(day_folder)
+    except OSError:
+        paths = sorted(chosen)
     lectures = []
-    for path in lecture_folders(day_folder):
+    for path in paths:
         name = os.path.basename(path)
+        try:
+            names = source_files(path)
+        except OSError:
+            continue
         title = calendar_title(name, items)
         match = next((l["lecture_id"] for l in ctx["lectures"] if same_lecture(title, l["title"])), None)
-        files = [{"name": f, "kind": f.rsplit(".", 1)[-1].lower(), "pages": page_count(os.path.join(path, f))} for f in source_files(path)]
+        files = [{"name": f, "kind": f.rsplit(".", 1)[-1].lower(), "pages": page_count(os.path.join(path, f))} for f in names]
         lectures.append({"key": name, "path": path, "folder_name": name, "title": title, "files": files, "match": match, "selected": path in chosen and bool(files)})
     return {
         "course": course, "code": code, "week": week, "day": day, "date": date.isoformat(), "day_label": day_label, "day_path": day_folder,
@@ -406,9 +416,9 @@ def make(plan, lec, lo, opts, lecture_id, existing, status, work_root):
         status.set(key, state="failed", phase="", message=f"Couldn't write the questions: {msg}")
         return f"{title}: failed"
     n = count_questions(out_path) or 0
-    shutil.copy2(out_path, os.path.join(plan["day_path"], out_name))  # keep the day file next to the lecture folders
+    saved_in = keep_copy(out_path, out_name, plan["day_path"], lec["path"])
     if not opts.get("add_to_bank", True):
-        status.set(key, state="done", phase="", questions=n, message=f"Saved {out_name} in the day folder (not added to Q-Bank).")
+        status.set(key, state="done", phase="", questions=n, message=f"Saved {out_name} in the {saved_in} folder (not added to Q-Bank).")
         return f"{title}: {n} saved"
 
     status.set(key, phase="Adding to Q-Bank", questions=n)
@@ -423,7 +433,7 @@ def make(plan, lec, lo, opts, lecture_id, existing, status, work_root):
     try:
         report = json.loads(imp.stdout)
     except ValueError:
-        status.set(key, state="failed", phase="", message="Wrote the questions but couldn't add them. The file is in the day folder; import it in Q-Bank.")
+        status.set(key, state="failed", phase="", message=f"Wrote the questions but couldn't add them. The file is in the {saved_in} folder; import it in Q-Bank.")
         return f"{title}: not added"
     added, extra = report.get("imported", 0), []
     if report.get("already_in_bank"):
@@ -432,6 +442,18 @@ def make(plan, lec, lo, opts, lecture_id, existing, status, work_root):
         extra.append(f"{len(report['conflicts'])} clashed (import the file in the app to resolve)")
     status.set(key, state="done", phase="", questions=n, message=f"Added {added} question{'' if added == 1 else 's'}" + (f" ({'; '.join(extra)})" if extra else "") + ".")
     return f"{title}: {added} added"
+
+
+def keep_copy(out_path, out_name, day_path, lecture_path):
+    """Keep the day file next to the lecture folders, or inside the lecture folder if macOS won't
+    let the Quick Action write to the day folder (it only allows the folders you right-clicked)."""
+    for where, folder in (("day", day_path), ("lecture", lecture_path)):
+        try:
+            shutil.copy2(out_path, os.path.join(folder, out_name))
+            return where
+        except OSError as e:
+            qlog(f"couldn't save a copy in {folder}: {e!r}")
+    return "cache"
 
 
 def default_folder_for(plan, target):

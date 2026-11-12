@@ -9,6 +9,7 @@ import SwiftUI
 
 // MARK: - Files shared with make_questions.py
 
+// Decoded field by field so a plan that's only {"error": "..."} still reads (and shows the error).
 struct Plan: Decodable {
     var error: String?
     var course = ""
@@ -22,6 +23,28 @@ struct Plan: Decodable {
     var folders: [FolderRef] = []
     var dayFolder: DayFolder?
     var defaults: GlobalOptions?
+
+    init() {}
+
+    enum CodingKeys: String, CodingKey {
+        case error, course, week, day, date, dayLabel, dayPath, lectures, bankLectures, folders, dayFolder, defaults
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        error = try c.decodeIfPresent(String.self, forKey: .error)
+        course = try c.decodeIfPresent(String.self, forKey: .course) ?? ""
+        week = try c.decodeIfPresent(Int.self, forKey: .week) ?? 0
+        day = try c.decodeIfPresent(Int.self, forKey: .day) ?? 0
+        date = try c.decodeIfPresent(String.self, forKey: .date) ?? ""
+        dayLabel = try c.decodeIfPresent(String.self, forKey: .dayLabel) ?? ""
+        dayPath = try c.decodeIfPresent(String.self, forKey: .dayPath) ?? ""
+        lectures = try c.decodeIfPresent([PlanLecture].self, forKey: .lectures) ?? []
+        bankLectures = try c.decodeIfPresent([BankLecture].self, forKey: .bankLectures) ?? []
+        folders = try c.decodeIfPresent([FolderRef].self, forKey: .folders) ?? []
+        dayFolder = try c.decodeIfPresent(DayFolder.self, forKey: .dayFolder)
+        defaults = try c.decodeIfPresent(GlobalOptions.self, forKey: .defaults)
+    }
 }
 
 struct PlanLecture: Decodable, Identifiable {
@@ -145,7 +168,15 @@ final class Model: ObservableObject {
     fileprivate func poll() {
         switch stage {
         case .loading:
-            guard let p = read("plan.json", as: Plan.self) else { return }
+            guard let p = read("plan.json", as: Plan.self) else {
+                // Never spin forever: say so if the plan is there but unreadable, or never comes.
+                if FileManager.default.fileExists(atPath: work.appendingPathComponent("plan.json").path) {
+                    stage = .failed("Couldn't read the lecture plan. See ~/Library/Logs/Q-Bank Questions.log.")
+                } else if Date().timeIntervalSince(started) > 120 {
+                    stage = .failed("Getting ready is taking too long. Check your internet connection and ~/Library/Logs/Q-Bank Questions.log, then try again.")
+                }
+                return
+            }
             if let e = p.error { stage = .failed(e); return }
             plan = p
             global = p.defaults ?? GlobalOptions()
