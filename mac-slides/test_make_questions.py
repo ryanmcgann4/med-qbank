@@ -1,8 +1,12 @@
 """Run with: /usr/bin/python3 -m unittest discover mac-slides"""
-import os, sys, unittest
+import json, os, subprocess, sys, tempfile, unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from make_questions import build_prompt, default_folder_for, lecture_id_for, next_lecture_id, same_lecture  # noqa: E402
+import make_questions  # noqa: E402
+from make_questions import (  # noqa: E402
+    assign_ids, build_prompt, default_folder_for, lecture_id_for, next_lecture_id, renumber, reservations, reserved_ids, same_lecture, taken_by_another,
+)
 
 
 def ctx(*titles, others=()):
@@ -100,6 +104,62 @@ class Filing(unittest.TestCase):
         a = next_lecture_id("B3", 15, 3, used)
         self.assertEqual(a, "B3-W15-D3-L4")
         self.assertEqual(next_lecture_id("B3", 15, 3, used + [a]), "B3-W15-D3-L5")
+
+
+class OverlappingRuns(unittest.TestCase):
+    """Two runs for the same day started a minute apart both numbered their new lecture L2 (B3 W16 D1)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        patches = [mock.patch.object(make_questions, "WORK", self.tmp.name), mock.patch.object(make_questions, "RESERVED", os.path.join(self.tmp.name, "lecture-ids.json"))]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        self.addCleanup(self.tmp.cleanup)
+
+    bank = ["B3-W16-D1-L1"]
+
+    def test_second_run_skips_the_first_runs_ids(self):
+        # The first run is another live process holding L2 until it imports.
+        other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+        self.addCleanup(other.kill)
+        with reservations() as held:
+            held[str(other.pid)] = ["B3-W16-D1-L2"]
+        with reservations() as held:
+            ids = assign_ids("B3", 16, 1, [{"key": "gp", "target": "new"}], [], self.bank + reserved_ids(held))
+        self.assertEqual(ids, {"gp": ("B3-W16-D1-L3", False)})
+
+    def test_finished_runs_release_their_ids(self):
+        dead = subprocess.Popen([sys.executable, "-c", "pass"])
+        dead.wait()
+        with reservations() as held:
+            held[str(dead.pid)] = ["B3-W16-D1-L2"]
+        with reservations() as held:
+            self.assertEqual(reserved_ids(held), [])
+
+    def test_adding_to_a_bank_lecture_keeps_its_id(self):
+        ids = assign_ids("B3", 16, 1, [{"key": "a", "target": "B3-W16-D1-L1"}, {"key": "b", "target": "new"}], [{"lecture_id": "B3-W16-D1-L1"}], self.bank)
+        self.assertEqual(ids, {"a": ("B3-W16-D1-L1", True), "b": ("B3-W16-D1-L2", False)})
+
+
+class RecheckBeforeImport(unittest.TestCase):
+    ctx = {"all_lecture_ids": ["B3-W16-D1-L1", "B3-W16-D1-L2"], "lectures": [
+        {"lecture_id": "B3-W16-D1-L1", "title": "Asthma"},
+        {"lecture_id": "B3-W16-D1-L2", "title": "Week 16 - General Principles of Pharmacology"},
+    ]}
+
+    def test_taken_by_a_different_lecture(self):
+        self.assertTrue(taken_by_another(self.ctx, "B3-W16-D1-L2", "Week 16 - Drug Absorption and Distribution"))
+
+    def test_free_or_same_lecture_is_fine(self):
+        self.assertFalse(taken_by_another(self.ctx, "B3-W16-D1-L3", "Week 16 - Drug Absorption and Distribution"))
+        self.assertFalse(taken_by_another(self.ctx, "B3-W16-D1-L2", "Week 16 - General Principles of Pharmacology"))
+
+    def test_renumber_moves_lecture_and_qids(self):
+        data = {"lectures": [{"lecture_id": "B3-W16-D1-L2"}], "questions": [{"qid": "B3-W16-D1-L2-Q007", "lecture_id": "B3-W16-D1-L2"}]}
+        out = renumber(json.loads(json.dumps(data)), "B3-W16-D1-L2", "B3-W16-D1-L3")
+        self.assertEqual(out["lectures"][0]["lecture_id"], "B3-W16-D1-L3")
+        self.assertEqual(out["questions"][0], {"qid": "B3-W16-D1-L3-Q007", "lecture_id": "B3-W16-D1-L3"})
 
 
 if __name__ == "__main__":

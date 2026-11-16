@@ -15,7 +15,7 @@ The window and this script talk through files in a work folder:
   status.json   (script → window) progress per lecture
   stop          (window → script) stop after the current step
 """
-import datetime, json, os, re, shutil, subprocess, sys, threading, time, zipfile
+import contextlib, datetime, fcntl, json, os, re, shutil, subprocess, sys, threading, time, zipfile
 from common import DAYS, DECKS, load, numbers, notify, overlap, save, words
 
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,6 +26,8 @@ GUI = os.path.expanduser("~/Applications/Q-Bank Questions.app/Contents/MacOS/QBa
 SOURCES = DECKS + (".pdf",)
 ENV = {**os.environ, "PATH": f"{os.path.expanduser('~/.local/bin')}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}
 TITLE = "Q-Bank Questions"
+# Lecture ids handed out by runs that haven't finished, so two runs going at once can't both take one.
+RESERVED = os.path.join(WORK, "lecture-ids.json")
 OPTIONS = "question-options.json"
 CLAUDE_TIMEOUT = 45 * 60
 
@@ -147,6 +149,73 @@ def lecture_id_for(code, week, day, title, ctx):
         if same_lecture(title, l["title"]):
             return l["lecture_id"], True
     return next_lecture_id(code, week, day, ctx["all_lecture_ids"]), False
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+@contextlib.contextmanager
+def reservations():
+    """{pid: [lecture ids]} that unfinished runs are using, locked across runs while you change it.
+    A run's ids only reach the bank when it imports, so a second run started before then would
+    otherwise number its new lecture the same as the first one's (both B3-W16-D1-L2)."""
+    os.makedirs(WORK, exist_ok=True)
+    with open(RESERVED + ".lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            with open(RESERVED) as f:
+                held = json.load(f)
+        except (OSError, ValueError):
+            held = {}
+        held = {pid: ids for pid, ids in held.items() if pid.isdigit() and alive(int(pid))}
+        yield held
+        write_json(RESERVED, held)
+
+
+def reserved_ids(held):
+    return [i for pid, ids in held.items() if pid != str(os.getpid()) for i in ids]
+
+
+def assign_ids(code, week, day, todo, bank_lectures, used):
+    """{lecture key: (lecture id, reusing the bank's?)}: the bank's id for a lecture you're adding to,
+    else the next number not in `used` (the bank's ids and other runs' reservations)."""
+    used, ids = list(used), {}
+    for lo in todo:
+        if lo["target"] != "new" and any(b["lecture_id"] == lo["target"] for b in bank_lectures):
+            ids[lo["key"]] = (lo["target"], True)
+        else:
+            new = next_lecture_id(code, week, day, used)
+            used.append(new)
+            ids[lo["key"]] = (new, False)
+    return ids
+
+
+def renumber(data, old, new):
+    """Move a day file's lecture `old` (and its qids) to lecture id `new`."""
+    for l in data.get("lectures", []):
+        if l.get("lecture_id") == old:
+            l["lecture_id"] = new
+    for q in data.get("questions", []):
+        if q.get("lecture_id") == old:
+            q["lecture_id"] = new
+            if str(q.get("qid", "")).startswith(old + "-"):
+                q["qid"] = new + q["qid"][len(old):]
+    return data
+
+
+def taken_by_another(ctx, lecture_id, title):
+    """Whether the bank now has `lecture_id` for a different lecture (something else added it while Claude wrote)."""
+    if lecture_id not in ctx["all_lecture_ids"]:
+        return False
+    there = next((l for l in ctx["lectures"] if l["lecture_id"] == lecture_id), None)
+    return not (there and same_lecture(title, there["title"]))
 
 
 def page_count(path):
@@ -377,7 +446,7 @@ def run_claude(prompt, work, out_path, model, status, key):
 # ---------------------------------------------------------------------------- one lecture
 
 
-def make(plan, lec, lo, opts, lecture_id, existing, status, work_root):
+def make(plan, lec, lo, opts, lecture_id, reused, status, work_root):
     """Write and add the questions for one lecture. Returns a short result line."""
     key, title = lec["key"], lo["title"].strip() or lec["title"]
     code, week, day = plan["code"], plan["week"], plan["day"]
@@ -408,13 +477,28 @@ def make(plan, lec, lo, opts, lecture_id, existing, status, work_root):
     out_path = os.path.join(work, out_name)
     prompt = build_prompt(
         course=plan["course"], code=code, week=week, day=day, date=plan["date"], day_label=plan["day_label"], title=title,
-        lecture_id=lecture_id, existing=existing, inputs=inputs, out_name=out_name, opts=opts, count=lo["count"],
+        lecture_id=lecture_id, existing=reused, inputs=inputs, out_name=out_name, opts=opts, count=lo["count"],
     )
     status.set(key, phase="Starting Claude")
     ok, msg = run_claude(prompt, work, out_path, opts.get("model") or "", status, key)
     if not ok:
         status.set(key, state="failed", phase="", message=f"Couldn't write the questions: {msg}")
         return f"{title}: failed"
+    if not reused and opts.get("add_to_bank", True):
+        # Last check before importing, in case the id was taken anyway (another Mac, or a run from before reservations).
+        fresh = bank_context(plan["course"], week, datetime.date.fromisoformat(plan["date"]), plan["day_label"])
+        if taken_by_another(fresh, lecture_id, title):
+            with reservations() as held:
+                new = next_lecture_id(code, week, day, fresh["all_lecture_ids"] + [i for ids in held.values() for i in ids])
+                held.setdefault(str(os.getpid()), []).append(new)
+            with open(out_path) as f:
+                data = renumber(json.load(f), lecture_id, new)
+            qlog(f"{lecture_id} was taken in the bank meanwhile; renumbered {title} to {new}")
+            out_name = out_name.replace(f"_{lecture_id.rsplit('-', 1)[1]}.json", f"_{new.rsplit('-', 1)[1]}.json")
+            out_path = os.path.join(work, out_name)
+            write_json(out_path, data)
+            lecture_id = new
+            status.set(key, lecture_id=new)
     n = count_questions(out_path) or 0
     saved_in = keep_copy(out_path, out_name, plan["day_path"], lec["path"])
     if not opts.get("add_to_bank", True):
@@ -503,16 +587,19 @@ def run_day(course, week, day, chosen):
 
     by_key = {l["key"]: l for l in plan["lectures"]}
     todo = [lo for lo in chosen_opts["lectures"] if lo.get("include") and lo["key"] in by_key]
-    # Lecture ids up front, so two new lectures on the same day can't get the same one.
-    used = list(plan["ctx"]["all_lecture_ids"])
-    ids = {}
-    for lo in todo:
-        if lo["target"] != "new" and any(b["lecture_id"] == lo["target"] for b in plan["bank_lectures"]):
-            ids[lo["key"]] = (lo["target"], True)
-        else:
-            new = next_lecture_id(plan["code"], week, day, used)
-            used.append(new)
-            ids[lo["key"]] = (new, False)
+    # Lecture ids up front, so two new lectures on the same day can't get the same one, and held
+    # until this run ends, so another run for the day started meanwhile can't take them either.
+    with reservations() as held:
+        ids = assign_ids(plan["code"], week, day, todo, plan["bank_lectures"], plan["ctx"]["all_lecture_ids"] + reserved_ids(held))
+        held[str(os.getpid())] = [i for i, reused in ids.values() if not reused]
+    try:
+        run_lectures(plan, todo, by_key, ids, opts, work)
+    finally:
+        with reservations() as held:
+            held.pop(str(os.getpid()), None)
+
+
+def run_lectures(plan, todo, by_key, ids, opts, work):
     status = Status(work, [{"key": lo["key"], "title": lo["title"], "lecture_id": ids[lo["key"]][0], "state": "queued", "phase": "", "questions": None, "message": ""} for lo in todo])
 
     results = []
