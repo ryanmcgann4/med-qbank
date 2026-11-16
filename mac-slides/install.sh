@@ -4,6 +4,8 @@
 #    "Open slides" button opens the lecture file at its slide
 #  - a LaunchAgent that organizes lecture files you drop into the course folder into
 #    Week N/<n Day>/<Lecture>/ (needs schedule.json, from parse_schedule.py); Downloads is left alone
+#  - "Q-Bank Filing.app", the File Lectures window: it opens when a file can't be placed (and from the
+#    "File Lectures" Quick Action) so you can pick the lecture, and lists recent filings to move or undo
 #  - a Finder Quick Action, "Make Q-Bank Questions", for lecture and day folders, and the window
 #    it opens to choose lectures, files, number of questions, style and Library folder
 #  - the qbank-generator skill, linked into ~/.claude/skills for Claude Code
@@ -77,11 +79,13 @@ launchctl bootout "gui/$(id -u)" "$AGENT" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$AGENT"
 echo "Organizing files you drop into: $(/usr/bin/python3 -c 'import json,os; print(", ".join(json.load(open(os.path.expanduser("~/Library/Application Support/Q-Bank Slides/config.json")))["courses"].values()))')"
 
-# Finder → right-click a folder → Quick Actions → Make Q-Bank Questions.
-WF="$HOME/Library/Services/Make Q-Bank Questions.workflow"
-rm -rf "$WF"
-mkdir -p "$WF/Contents"
-cat > "$WF/Contents/Info.plist" <<'PL'
+# Finder → right-click a folder → Quick Actions → <name>, running a shell command with the folders as "$@".
+quick_action() {
+  local NAME=$1 COMMAND=$2
+  local WF="$HOME/Library/Services/$NAME.workflow"
+  rm -rf "$WF"
+  mkdir -p "$WF/Contents"
+  cat > "$WF/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -90,7 +94,7 @@ cat > "$WF/Contents/Info.plist" <<'PL'
   <array>
     <dict>
       <key>NSIconName</key><string>NSActionTemplate</string>
-      <key>NSMenuItem</key><dict><key>default</key><string>Make Q-Bank Questions</string></dict>
+      <key>NSMenuItem</key><dict><key>default</key><string>$NAME</string></dict>
       <key>NSMessage</key><string>runWorkflowAsService</string>
       <key>NSRequiredContext</key><dict><key>NSApplicationIdentifier</key><string>com.apple.finder</string></dict>
       <key>NSSendFileTypes</key><array><string>public.folder</string></array>
@@ -99,10 +103,9 @@ cat > "$WF/Contents/Info.plist" <<'PL'
 </dict>
 </plist>
 PL
-/usr/bin/python3 - "$WF/Contents/document.wflow" "$DIR/make_questions.py" <<'PY'
+  /usr/bin/python3 - "$WF/Contents/document.wflow" "$COMMAND" <<'PY'
 import plistlib, sys, uuid
-out, script = sys.argv[1:]
-command = f'nohup /usr/bin/python3 "{script}" "$@" >/dev/null 2>&1 &'
+out, command = sys.argv[1:]
 u = lambda: str(uuid.uuid4()).upper()
 action = {
     "AMAccepts": {"Container": "List", "Optional": True, "Types": ["com.apple.cocoa.string"]},
@@ -151,8 +154,11 @@ doc = {
 }
 plistlib.dump(doc, open(out, "wb"))
 PY
+  echo "Added Finder Quick Action: $NAME"
+}
+quick_action "Make Q-Bank Questions" "nohup /usr/bin/python3 \"$DIR/make_questions.py\" \"\$@\" >/dev/null 2>&1 &"
+quick_action "File Lectures" "/usr/bin/open -a \"$HOME/Applications/Q-Bank Filing.app\""
 /System/Library/CoreServices/pbs -flush 2>/dev/null || true
-echo "Added Finder Quick Action: Make Q-Bank Questions"
 "$DIR/build_window.sh"
 
 # The question-writing skill, for Claude Code (claude -p) to use.

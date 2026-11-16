@@ -9,15 +9,21 @@ parse_schedule.py) to tell which lecture a file belongs to.
   - anything already in a lecture folder, and quiz/day files kept at the day level, is left alone
 
 Downloads is never touched. A LaunchAgent opens qbank-slides://organize when one of
-those folders changes. Files it can't place stay where you put them, with a notification.
+those folders changes. Files it can't place stay where you put them, and the File Lectures
+window (QBankFiling.swift, through filing.py) opens so you can pick the lecture yourself. What you
+pick there is remembered (filing.json), so the lecture's other files follow without asking.
 """
-import datetime, filecmp, os, re, shutil, time
-from common import DAYS, HOME, load, log, notify, numbers, overlap, save, words
+import contextlib, datetime, fcntl, filecmp, os, re, shutil, subprocess, time, uuid
+import common
+from common import DAYS, load, log, notify, numbers, overlap, save, words
 
 EXTS = (".pptx", ".ppt", ".key", ".pdf", ".docx", ".doc")
 PARTIAL = (".crdownload", ".download", ".part", ".partial", ".tmp", ".opdownload")
 DAY_FILE = re.compile(r"^([A-Z]+)(\d+)_W(\d+)_D([1-5])_\d{4}-\d{2}-\d{2}.*\.json$")
 SETTLE = 3  # seconds a file must sit unchanged before it's considered downloaded
+WINDOW = os.path.expanduser("~/Applications/Q-Bank Filing.app")
+FRESH = 14  # days a lecture you picked by hand keeps attracting files that name it
+KEEP = 40  # moves kept for "Recently filed"
 
 
 def course_code(course):
@@ -61,7 +67,7 @@ def lecture_dir(day_dir, item, day_items=()):
     return os.path.join(day_dir, best or item["folder"])
 
 
-def place(name, schedule, roots, now, course=None, week=None, day=None):
+def place(name, schedule, roots, now, course=None, week=None, day=None, learned=()):
     """Where a file goes (limited to a course, week or day if given), or None if no lecture clearly matches."""
     m = DAY_FILE.match(name)
     if m:
@@ -69,11 +75,21 @@ def place(name, schedule, roots, now, course=None, week=None, day=None):
             if course_code(c) == f"{m.group(1)}{m.group(2)}" and course in (None, c):
                 return os.path.join(root, f"Week {int(m.group(3))}", DAYS[int(m.group(4)) - 1]), f"{c} day file"
         return None
-    if not name.lower().endswith(EXTS):
+    if not name.lower().endswith(EXTS) or not words(os.path.splitext(name)[0]):
         return None
+    # Where you put this same file yourself beats the calendar; a lecture you picked for a file like it only fills in
+    # when the calendar can't say.
+    exact, close = recall(name, learned, roots, now, course, week, day)
+    return exact or match(name, schedule, roots, now, course, week, day) or (close[0] if len(close) == 1 else None)
+
+
+def rank(name, schedule, roots, now, course=None, week=None, day=None):
+    """Every lecture whose title shares a word with the file name, best first."""
+    if not name.lower().endswith(EXTS):
+        return []
     want = words(os.path.splitext(name)[0])
     if not want:
-        return None
+        return []
     # A week in the file name beats guessing from today's date; the folder it was dropped in beats both.
     said = stated_week(name)
     if week is None and any(str(said) in w for c, w in schedule.items() if c in roots and course in (None, c)):
@@ -110,11 +126,22 @@ def place(name, schedule, roots, now, course=None, week=None, day=None):
                         # "Pharmacokinetics" over "Pharmacokinetics Problem Session".
                         covered = overlap(words(item["title"]), want) / max(len(words(item["title"])), 1)
                         ranked.append((score, -nearness, c, int(w), int(d), item, covered))
+    ranked.sort(key=lambda r: (r[0], r[1] >= -7, r[6], r[1]), reverse=True)
+    return ranked
+
+
+def ranked_dir(r, schedule, roots):
+    return lecture_dir(os.path.join(roots[r[2]], f"Week {r[3]}", DAYS[r[4] - 1]), r[5], schedule[r[2]][str(r[3])]["days"][str(r[4])])
+
+
+def match(name, schedule, roots, now, course=None, week=None, day=None):
+    """The lecture the calendar says a file is for, or None if none clearly wins."""
+    ranked = rank(name, schedule, roots, now, course, week, day)
     if not ranked:
         return None
-    ranked.sort(key=lambda r: (r[0], r[1] >= -7, r[6], r[1]), reverse=True)
+    want = words(os.path.splitext(name)[0])
     top = ranked[0]
-    dir_of = lambda r: lecture_dir(os.path.join(roots[r[2]], f"Week {r[3]}", DAYS[r[4] - 1]), r[5], schedule[r[2]][str(r[3])]["days"][str(r[4])])
+    dir_of = lambda r: ranked_dir(r, schedule, roots)
     # Two different lectures equally good: don't guess, unless they share a folder ("Gram Negative 1 and 2").
     # Across weeks the date or a closer title can settle it; within one week neither says enough ("TBL Week 14 GI" isn't "GI Development").
     rivals = [
@@ -135,6 +162,60 @@ def place(name, schedule, roots, now, course=None, week=None, day=None):
         return None
     dest = dir_of(top)
     return dest, f"Week {w} › {DAYS[d - 1]} › {os.path.basename(dest)}"
+
+
+def recall(name, learned, roots, now, course=None, week=None, day=None):
+    """What you've filed by hand says about a file: (where this same name went, [where files naming the same lecture went lately]).
+
+    Each is (folder, label). "Same name" ignores the words that say nothing (slides, handout, 2026…). The second list is
+    for a lecture's other files: "Asthma brick 2" follows "TBL Asthma Walder" into the Asthma folder you picked, for a
+    couple of weeks, but only because it names the folder's topic, not because both say "brick".
+    """
+    want = words(os.path.splitext(name)[0])
+    said = stated_week(name)
+    exact, close = None, {}
+    for e in learned:
+        root = roots.get(e.get("course"))
+        if not root or course not in (None, e["course"]) or week not in (None, e["week"]) or day not in (None, e["day"]):
+            continue
+        dest = os.path.join(root, e["dir"])
+        found = dest, " › ".join(e["dir"].split("/"))
+        have = set(e["words"])
+        if have == want:
+            exact = found  # the latest time you filed it wins
+            continue
+        try:
+            fresh = abs((now - datetime.date.fromisoformat(e["when"])).days) <= FRESH
+        except (KeyError, ValueError):
+            fresh = False
+        shared = want & have
+        if fresh and said in (None, e["week"]) and shared and overlap(shared, words(os.path.basename(e["dir"]))) >= 1:
+            close[dest] = max(close.get(dest, (0,))[0], len(shared)), found
+    best = max((n for n, _ in close.values()), default=0)
+    return exact, [found for n, found in close.values() if n == best]
+
+
+@contextlib.contextmanager
+def filing_state():
+    """filing.json, held while you change it: what you've filed by hand, files to leave alone, and recent moves."""
+    os.makedirs(common.HOME, exist_ok=True)
+    with open(os.path.join(common.HOME, "filing.lock"), "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        s = load("filing.json", {})
+        s.setdefault("learned", [])  # {words, course, week, day, dir, when}: a file name's words → the folder you chose
+        s.setdefault("held", {})  # path → "ask" (wait for the window) or "leave" (it lives there); never filed automatically
+        s.setdefault("history", [])  # {id, name, src, dest, label, when, auto, made}, newest last
+        yield s
+        s["held"] = {p: v for p, v in s["held"].items() if os.path.exists(p)}
+        s["history"] = s["history"][-KEEP:]
+        save("filing.json", s)
+
+
+def remember(state, src, dest, label, auto, made):
+    state["history"].append({
+        "id": uuid.uuid4().hex[:12], "name": os.path.basename(dest), "src": src, "dest": dest, "label": label,
+        "when": datetime.datetime.now().isoformat(timespec="seconds"), "auto": auto, "made": made,
+    })
 
 
 def settled(path):
@@ -205,30 +286,46 @@ def run():
     schedule = load("schedule.json", {})
     told = load("organize-state.json", {}).get("told", {})  # files already reported as unplaceable
     today = datetime.date.today()
+    with filing_state() as state:
+        learned, held = list(state["learned"]), dict(state["held"])
+    stuck = False
     for _ in range(20):  # wait up to ~40 s for copies still finishing
         waiting = False
         for course, root in roots.items():
             for path, week, day in loose_files(root):
                 name = os.path.basename(path)
+                if path in held:
+                    continue  # you undid its filing or said it lives here; the window decides, not us
                 if name.lower().endswith(PARTIAL) or not settled(path):
                     waiting = True
                     continue
-                target = place(name, schedule, roots, today, course, week, day)
+                target = place(name, schedule, roots, today, course, week, day, learned)
                 if not target:
                     stamp = os.path.getmtime(path)
                     if told.get(path) != stamp and name.lower().endswith(EXTS):
                         told[path] = stamp
                         log(f"organize: no lecture match for {path}")
-                        notify(f"Couldn't tell which lecture “{name}” is for, so it's still in {os.path.basename(os.path.dirname(path))}.")
+                        if os.path.isdir(WINDOW):
+                            stuck = True
+                        else:
+                            notify(f"Couldn't tell which lecture “{name}” is for, so it's still in {os.path.basename(os.path.dirname(path))}.")
                     continue
                 dest_dir, label = target
                 if os.path.normpath(dest_dir) == os.path.normpath(os.path.dirname(path)):
                     continue  # a day file already in its day folder
+                made = not os.path.isdir(dest_dir)
                 dest, dup = move(path, dest_dir)
                 told.pop(path, None)
+                if not dup and not DAY_FILE.match(name):
+                    with filing_state() as state:
+                        remember(state, path, dest, label, True, made)
                 log(f"organize: {path} → {dest}{' (duplicate, trashed)' if dup else ''}")
                 notify(f"{'Already had' if dup else 'Filed'} “{name}” → {label}")
         save("organize-state.json", {"told": {p: m for p, m in told.items() if os.path.exists(p)}})
+        if stuck:
+            # Ask in the window, once per file: it lists everything still loose, with the nearest lectures to pick from.
+            subprocess.run(["/usr/bin/open", "-a", WINDOW])
+            stuck = False
         if not waiting:
             break
         time.sleep(2)

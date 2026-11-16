@@ -200,9 +200,21 @@ also sets up:
   Then drop lecture files into the course folder (or a Week or day folder inside
   it) and they're moved into `Week <n>/<n> <Weekday>/<Lecture>/`, matched by name
   against the schedule (only that week's or day's lectures if you dropped them
-  there), with a notification. Files that don't clearly match stay where you put
-  them. Downloads is never touched. Q-Bank day files (`B2_W12_D1_….json`) go
-  into their day folder. Run the installer again after adding a new Week folder.
+  there), with a notification. Downloads is never touched. Q-Bank day files
+  (`B2_W12_D1_….json`) go into their day folder. Run the installer again after
+  adding a new Week folder.
+- **File Lectures**, for the files that don't clearly match. They stay where you
+  put them and a window opens (`mac-slides/QBankFiling.swift`, built into
+  `~/Applications/Q-Bank Filing.app`; also Finder → right-click a folder → Quick
+  Actions → File Lectures). Each waiting file shows the organizer's best guess,
+  with a menu of the closest lectures, every week › day › lecture, and **New
+  folder…** for something that isn't on the schedule (a TBL, say). **File** moves
+  one, **File All** moves every file that has a lecture chosen. What you pick is
+  remembered: the same file name goes there next time, and for two weeks other
+  files that name that folder's topic follow it. **Recently filed** lists the
+  last moves, automatic ones included, with **Move to…** and **Undo**; an undone
+  file waits in the window instead of being filed again. **Leave It Where It
+  Is** (the ⋯ menu) stops the window asking about a file.
 - **Make Q-Bank Questions** (Finder → right-click a lecture or day folder →
   Quick Actions). A window opens first (`mac-slides/QBankQuestions.swift`,
   built into `~/Applications/Q-Bank Questions.app` by the installer) where you
