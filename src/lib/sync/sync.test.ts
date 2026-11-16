@@ -345,5 +345,38 @@ describe('two devices syncing through one repo', () => {
       expect(await d.progress.get(Q1)).toMatchObject({ timesSeen: 1, timesCorrect: 1, lastResult: 'correct' });
     }
   });
-});
 
+  it('an interrupted first sync carries on from where it stopped', async () => {
+    // A long-lived bank: more files than one download batch.
+    const tree = new Map(repo.trees.get('t0'));
+    for (let i = 0; i < 320; i++) {
+      const id = `s${String(i).padStart(3, '0')}`;
+      tree.set(`sessions/${id}.json`, await repo.createBlob(stableStringify({ id, title: 'Quiz', createdAt: T + i, finishedAt: T + i, elapsedMs: 1, items: [], answers: [] })));
+    }
+    repo.trees.set('big', tree);
+    repo.commits.set('cbig', { tree: 'big', parent: 'c0' });
+    repo.head = 'cbig';
+
+    let calls = 0;
+    const counting = (failAfter: number): RepoClient => {
+      calls = 0;
+      const c = Object.create(repo) as FakeRepo;
+      c.getBlob = async (sha) => {
+        if (++calls > failAfter) throw new Error('rate limit');
+        return repo.getBlob(sha);
+      };
+      return c;
+    };
+
+    await expect(syncOnce(counting(200), phone)).rejects.toThrow('rate limit');
+    const partial = await phone.sessions.count();
+    expect(partial).toBeGreaterThan(0);
+    expect(partial).toBeLessThan(320);
+    expect(repo.head).toBe('cbig'); // a half-finished pull never pushes
+
+    await syncOnce(counting(Infinity), phone);
+    expect(await phone.sessions.count()).toBe(320);
+    expect(calls).toBe(320 - partial); // only the rest was downloaded
+    expect(repo.files().filter((f) => f.startsWith('sessions/'))).toHaveLength(320);
+  });
+});

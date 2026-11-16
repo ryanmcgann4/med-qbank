@@ -116,7 +116,13 @@ def main(url):
             log(f"mapped file missing: {path}")
             path = None
     if not path:
-        path, folder = find_by_title(root, q.get("week", ""), q.get("date", ""), q.get("title", ""), src)
+        # Any web page can open a qbank-slides:// link, so the week can only be a number: it becomes part of
+        # a folder path, and something like "7/../../.." must not send the search outside the course folder.
+        week = q.get("week", "")
+        if not re.fullmatch(r"\d{1,3}", week):
+            notify("That slides link doesn't say which week it's from.")
+            return
+        path, folder = find_by_title(root, week, q.get("date", ""), q.get("title", ""), src)
         if not path:
             subprocess.run(["open", folder if os.path.isdir(folder) else root])
             notify(f"Couldn't find the slides for “{q.get('title', '')}”, so here's the folder.")

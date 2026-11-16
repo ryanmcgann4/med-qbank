@@ -1,5 +1,5 @@
 import type { Attempt, Exam } from '../db';
-import { addDays, DAY_MS, daysBetween, startOfDay, todayISO } from './dates';
+import { addDays, DAY_MS, daysBetween, parseDay, startOfDay, todayISO } from './dates';
 import { shuffle } from './rng';
 import { weekKey, type Candidate, type SelectOptions } from './selection';
 import { hasStatus, isRightReview } from './status';
@@ -34,7 +34,7 @@ export const inExam = (c: Candidate, exam: Exam) =>
 /** In the last week before an exam, its reviews stop waiting for new questions ("new first" is lifted). */
 export const RELEASE_DAYS = 7;
 
-const examDay = (e: Exam) => new Date(e.date + 'T00:00:00').getTime();
+const examDay = (e: Exam) => parseDay(e.date);
 
 /** Questions in an exam that's at most RELEASE_DAYS away: their reviews come back even with "new first" on. */
 export function releasedByExams(exams: readonly Exam[], now = Date.now()): (c: Candidate) => boolean {

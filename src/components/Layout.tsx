@@ -2,6 +2,7 @@ import { BarChart3, BookOpenCheck, Home, Library, Monitor, Moon, PlusCircle, Set
 import { NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router';
 import { useTheme, type Theme } from '../hooks/useTheme';
 import { BackupBanner } from './BackupBanner';
+import { SyncBanner } from './SyncBanner';
 import { SyncIndicator } from './SyncIndicator';
 import { UpdateToast } from './UpdateToast';
 import { cn } from './ui';
@@ -79,6 +80,7 @@ export function Layout() {
           </button>
         </div>
       </header>
+      {!inQuiz && <SyncBanner />}
       {!inQuiz && <BackupBanner />}
 
       <main className={cn('mx-auto max-w-5xl px-4 py-6', !inQuiz && 'pb-24 sm:pb-10')}>

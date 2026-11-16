@@ -1,17 +1,57 @@
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Days are your local days. Code that doesn't run on your device (the Claude
+ * connector runs on a server in UTC) names your time zone here, so "today",
+ * "due" and exam countdowns mean the same there as in the app.
+ */
+let zone: Intl.DateTimeFormat | null = null;
+export function setTimeZone(tz: string | null): void {
+  zone = tz
+    ? new Intl.DateTimeFormat('en-CA', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : null;
+}
+
+/** Wall-clock fields of `t` in the chosen zone: [year, month (0-based), day, hour, minute, second]. */
+function wall(t: number): number[] {
+  if (!zone) {
+    const d = new Date(t);
+    return [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds()];
+  }
+  const p: Record<string, number> = {};
+  for (const { type, value } of zone.formatToParts(new Date(t))) p[type] = Number(value);
+  return [p.year, p.month - 1, p.day, p.hour, p.minute, p.second];
+}
+
+/** The moment calendar day (y, m, d) starts; `d` may run past the month's end. */
+function midnight(y: number, m: number, d: number): number {
+  if (!zone) return new Date(y, m, d).getTime();
+  const target = Date.UTC(y, m, d);
+  let t = target;
+  // Shift by the zone's UTC offset at that moment; a second pass settles days when the offset changes (DST).
+  for (let i = 0; i < 2; i++) {
+    const [wy, wm, wd, wh, wmin, ws] = wall(t);
+    t -= Date.UTC(wy, wm, wd, wh, wmin, ws) - target;
+  }
+  return t;
+}
+
 /** Local midnight at the start of the day containing `t`. */
 export function startOfDay(t: number): number {
-  const d = new Date(t);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  const [y, m, d] = wall(t);
+  return midnight(y, m, d);
 }
 
 /** Local midnight `n` calendar days after the day containing `t` (DST-safe). */
 export function addDays(t: number, n: number): number {
-  const d = new Date(startOfDay(t));
-  d.setDate(d.getDate() + n);
-  return d.getTime();
+  const [y, m, d] = wall(t);
+  return midnight(y, m, d + n);
+}
+
+/** Local midnight at the start of a YYYY-MM-DD date. */
+export function parseDay(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  return midnight(y, m - 1, d);
 }
 
 /** Whole calendar days from the day of `from` to the day of `to`. */
@@ -44,7 +84,7 @@ export function relativeDay(t: number, now = Date.now()): string {
 }
 
 export function todayISO(now = Date.now()): string {
-  const d = new Date(now);
+  const [y, m, d] = wall(now);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${y}-${pad(m + 1)}-${pad(d)}`;
 }

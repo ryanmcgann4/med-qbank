@@ -37,6 +37,17 @@ Dexie.on('storagemutated', (parts) => {
   }
 });
 
+/** How many files to download at once. */
+const PULL_PARALLEL = 6;
+/**
+ * Merge and remember progress after this many downloaded files, so a first
+ * sync of a large bank that's interrupted (closed app, lost signal, GitHub's
+ * hourly request limit) carries on from there instead of starting over.
+ */
+const PULL_BATCH = 150;
+/** Tombstones, lectures and folders first, then questions, answers, and past quizzes. */
+const pullOrder = (path: string) => (!path.includes('/') ? 0 : path.startsWith('questions/') ? 1 : path.startsWith('attempts/') ? 2 : 3);
+
 const EMPTY: BackupData = { questions: [], lectures: [], progress: [], attempts: [], sessions: [], imports: [], kv: [], deletions: [], exams: [], folders: [], settings: [] };
 /** Let the browser paint between tables, so a big rebuild doesn't freeze a quiz. */
 const yieldToUI = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -88,10 +99,21 @@ export async function syncOnce(client: RepoClient, database: QBankDB = defaultDb
     const remote = await client.getTree(head.tree);
     const cache = ((await database.kv.get(CACHE_KEY))?.value ?? {}) as Record<string, string>;
 
-    const changed = [...remote].filter(([path, sha]) => MANAGED.test(path) && cache[path] !== sha);
-    const downloaded = new Map<string, string>();
-    for (const [path, sha] of changed) downloaded.set(path, await client.getBlob(sha));
-    if (downloaded.size) markDirty(database.name, (await mergeIntoChanged(fromShards(downloaded), database)).changed);
+    const changed = [...remote].filter(([path, sha]) => MANAGED.test(path) && cache[path] !== sha).sort((a, b) => pullOrder(a[0]) - pullOrder(b[0]));
+    for (let i = 0; i < changed.length; i += PULL_BATCH) {
+      const batch = changed.slice(i, i + PULL_BATCH);
+      const downloaded = new Map<string, string>();
+      for (let j = 0; j < batch.length; j += PULL_PARALLEL) {
+        await Promise.all(batch.slice(j, j + PULL_PARALLEL).map(async ([path, sha]) => void downloaded.set(path, await client.getBlob(sha))));
+      }
+      markDirty(database.name, (await mergeIntoChanged(fromShards(downloaded), database)).changed);
+      if (i + PULL_BATCH < changed.length) {
+        // More to come: note what's merged so far. (The last batch is noted once the round is done.)
+        for (const [path, sha] of batch) cache[path] = sha;
+        await database.kv.put({ key: CACHE_KEY, value: cache });
+      }
+    }
+    const pulled = changed.length;
 
     // Local is now a superset of the remote, minus anything deleted.
     let local = await localState(database);
@@ -112,7 +134,7 @@ export async function syncOnce(client: RepoClient, database: QBankDB = defaultDb
     const nextCache = Object.fromEntries([...remote].filter(([p]) => MANAGED.test(p)));
     if (!changes.length) {
       await database.kv.put({ key: CACHE_KEY, value: nextCache });
-      return { pulled: downloaded.size, pushed: 0, commit: null };
+      return { pulled, pushed: 0, commit: null };
     }
 
     for (const u of uploads) await client.createBlob(u.content);
@@ -126,7 +148,7 @@ export async function syncOnce(client: RepoClient, database: QBankDB = defaultDb
       else delete nextCache[c.path];
     }
     await database.kv.put({ key: CACHE_KEY, value: nextCache });
-    return { pulled: downloaded.size, pushed: changes.length, commit };
+    return { pulled, pushed: changes.length, commit };
   }
   throw new Error('Another device kept syncing at the same moment. Try again.');
 }

@@ -1,8 +1,38 @@
 /// <reference types="vitest/config" />
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * The sync token lives in this page's storage, so the built app only runs its
+ * own scripts and only talks to GitHub: injected script (from a malicious
+ * question file, a compromised dependency's inline payload, a browser quirk)
+ * can't run or send the token anywhere else. Not applied in dev, where Vite's
+ * hot reload needs inline scripts.
+ */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://api.github.com",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
+const contentSecurityPolicy = (): Plugin => ({
+  name: 'qbank-csp',
+  apply: 'build',
+  transformIndexHtml: () => [
+    { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CSP }, injectTo: 'head-prepend' },
+    { tag: 'meta', attrs: { name: 'referrer', content: 'no-referrer' }, injectTo: 'head-prepend' },
+  ],
+});
 
 export default defineConfig({
   // Relative base so the build works at any path (GitHub Pages /repo/, Netlify root, etc.).
@@ -10,6 +40,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    contentSecurityPolicy(),
     VitePWA({
       // Ask before swapping in a new version, so an update never reloads mid-question.
       registerType: 'prompt',

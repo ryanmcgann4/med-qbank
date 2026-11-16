@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { Confidence, Progress, StatusKey, StoredLecture, StoredQuestion } from '../../src/db';
+import { setTimeZone } from '../../src/lib/dates';
 import { planFor, releasedByExams, upcoming } from '../../src/lib/exams';
 import { autoNames } from '../../src/lib/org';
 import { emptyProgress } from '../../src/lib/progress';
@@ -52,6 +53,8 @@ const asked = (q: StoredQuestion, l?: StoredLecture) => ({
 });
 
 export function buildServer(env: Env): McpServer {
+  // This runs on a server in UTC: without this, questions come due (and exams leave the calendar) hours early in the evening.
+  setTimeZone(env.TIMEZONE || 'America/Chicago');
   const server = new McpServer({ name: 'qbank', version: '1.0.0' }, { instructions: INSTRUCTIONS });
   const read = { readOnlyHint: true, openWorldHint: false };
   const write = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };

@@ -61,8 +61,20 @@ async function sameSecret(a: string, b: string): Promise<boolean> {
 
 const html = (body: string, headers: Headers, status = 200) => {
   headers.set('Content-Type', 'text/html; charset=utf-8');
+  // The passphrase page can't be framed by another site (clickjacking), cached, or run anything but its own inline styles.
+  headers.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'");
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Referrer-Policy', 'no-referrer');
+  headers.set('Cache-Control', 'no-store');
   return new Response(body, { status, headers });
 };
+
+// Passphrase guessing: after a few wrong tries, connecting is refused for a while (existing connections keep working).
+const FAILS_KEY = 'qbank:passphrase-fails';
+const MAX_FAILS = 8;
+const LOCK_SECONDS = 15 * 60;
+const tooManyTries = () => new Response('Too many wrong passphrases. Wait 15 minutes, then start connecting again from Claude.', { status: 429, headers: { 'Retry-After': String(LOCK_SECONDS), 'Content-Type': 'text/plain; charset=utf-8' } });
 
 const authorize = {
   async fetch(req: Request, env: AuthEnv): Promise<Response> {
@@ -86,12 +98,16 @@ const authorize = {
         const denied = await oauth.denyConsent(req, handle);
         return new Response(null, { status: 302, headers: denied.headers });
       }
+      const fails = Number(await env.OAUTH_KV.get(FAILS_KEY)) || 0;
+      if (fails >= MAX_FAILS) return tooManyTries();
       if (!env.PASSPHRASE || !(await sameSecret(String(form.get('passphrase') ?? ''), env.PASSPHRASE))) {
+        await env.OAUTH_KV.put(FAILS_KEY, String(fails + 1), { expirationTtl: LOCK_SECONDS });
         // Start the same authorization again with an error message.
         const query = String(form.get('query') ?? '');
         if (!query.startsWith('?')) return new Response('Wrong passphrase. Start connecting again from Claude.', { status: 401 });
         return Response.redirect(`${url.origin}/authorize${query}&retry=1`, 303);
       }
+      if (fails) await env.OAUTH_KV.delete(FAILS_KEY);
       const approved = await oauth.approveConsent(req, handle, { scope: [SCOPE, 'offline_access'] });
       const { redirectTo } = await oauth.completeAuthorization({
         request: approved.request,

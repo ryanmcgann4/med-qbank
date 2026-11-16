@@ -86,9 +86,21 @@ export class GitHubClient implements RepoClient {
   }
 
   async getTree(tree: string): Promise<Map<string, string>> {
-    const t = await this.json<{ tree: { path: string; sha: string; type: string }[]; truncated: boolean }>(`/git/trees/${tree}?recursive=1`);
-    if (t.truncated) throw new SyncError('other', 'The sync repo has too many files for one listing.');
-    return new Map(t.tree.filter((e) => e.type === 'blob').map((e) => [e.path, e.sha]));
+    type Listing = { tree: { path: string; sha: string; type: string }[]; truncated: boolean };
+    const all = await this.json<Listing>(`/git/trees/${tree}?recursive=1`);
+    if (!all.truncated) return new Map(all.tree.filter((e) => e.type === 'blob').map((e) => [e.path, e.sha]));
+    // Too many files for one listing (years of answers and quizzes): list folder by folder instead.
+    const files = new Map<string, string>();
+    const walk = async (sha: string, prefix: string) => {
+      const level = await this.json<Listing>(`/git/trees/${sha}`);
+      if (level.truncated) throw new SyncError('other', 'The sync repo has too many files in one folder to list.');
+      for (const e of level.tree) {
+        if (e.type === 'blob') files.set(prefix + e.path, e.sha);
+        else if (e.type === 'tree') await walk(e.sha, `${prefix}${e.path}/`);
+      }
+    };
+    await walk(tree, '');
+    return files;
   }
 
   async getBlob(sha: string): Promise<string> {

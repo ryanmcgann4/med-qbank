@@ -16,6 +16,8 @@ export interface SyncState {
   status: 'off' | 'idle' | 'syncing' | 'error';
   lastSyncedAt: number | null;
   error: string | null;
+  /** What kind of failure `error` is; 'network' usually just means offline. */
+  errorKind: SyncError['kind'] | null;
 }
 
 // --- config (this device only; never in backups or the synced data) ---
@@ -50,7 +52,7 @@ function readLast(): number | null {
 
 let state: SyncState = (() => {
   const cfg = loadConfig();
-  return { configured: !!cfg, repo: cfg?.repo ?? null, status: cfg ? 'idle' : 'off', lastSyncedAt: readLast(), error: null };
+  return { configured: !!cfg, repo: cfg?.repo ?? null, status: cfg ? 'idle' : 'off', lastSyncedAt: readLast(), error: null, errorKind: null };
 })();
 const listeners = new Set<() => void>();
 const set = (patch: Partial<SyncState>) => {
@@ -96,9 +98,9 @@ export function syncNow(): Promise<void> {
       } catch {
         /* ignore */
       }
-      set({ status: 'idle', lastSyncedAt: now, error: null });
+      set({ status: 'idle', lastSyncedAt: now, error: null, errorKind: null });
     } catch (e) {
-      set({ status: 'error', error: e instanceof SyncError || e instanceof Error ? e.message : String(e) });
+      set({ status: 'error', error: e instanceof Error ? e.message : String(e), errorKind: e instanceof SyncError ? e.kind : 'other' });
     } finally {
       running = null;
       if (again) {
@@ -123,13 +125,21 @@ export async function connect(cfg: SyncConfig): Promise<void> {
   if (!info.private) throw new Error(`${repo} is public, so anyone could read your notes and answers. Use a private repository.`);
   const full = { repo, token: cfg.token.trim(), branch: cfg.branch || info.defaultBranch };
   saveConfig(full);
-  set({ configured: true, repo, status: 'idle', error: null });
+  set({ configured: true, repo, status: 'idle', error: null, errorKind: null });
   await syncNow();
+}
+
+/** Swap in a new token (the old one expired or was revoked). Also takes a setup code copied from a device that already has the new one. */
+export async function replaceToken(tokenOrCode: string): Promise<void> {
+  const cfg = loadConfig();
+  if (!cfg) throw new Error('Sync is not set up on this device.');
+  const t = tokenOrCode.trim();
+  await connect(t.startsWith(CODE_PREFIX) ? parseSetupCode(t) : { ...cfg, token: t });
 }
 
 export function disconnect() {
   saveConfig(null);
-  set({ configured: false, repo: null, status: 'off', error: null });
+  set({ configured: false, repo: null, status: 'off', error: null, errorKind: null });
 }
 
 // --- setup codes: move the config to another device without retyping ---

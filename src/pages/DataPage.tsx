@@ -14,7 +14,7 @@ import { useLeechThreshold, useNewFirst } from '../hooks/useSettings';
 import { useSyncState } from '../hooks/useSync';
 import { LEECH_CHOICES, LEECH_KEY, NEW_FIRST_KEY, setSetting } from '../lib/settings';
 import { setSlidesOnThisDevice, slidesOnThisDevice } from '../lib/slides';
-import { connect, disconnect, parseSetupCode, setupCode, syncNow } from '../lib/sync/controller';
+import { connect, disconnect, parseSetupCode, replaceToken, setupCode, syncNow } from '../lib/sync/controller';
 
 const ANKI_STATUSES: StatusKey[] = ['missed', 'ever_missed', 'lucky', 'flagged', 'reported', 'mastered'];
 
@@ -91,6 +91,40 @@ function SyncSection() {
           </span>
         </div>
         {sync.error && <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">{sync.error}</p>}
+        {(sync.errorKind === 'auth' || sync.errorKind === 'not_found') && (
+          <div className="mt-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-950/30">
+            <div className="text-sm font-semibold">Token expired?</div>
+            <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
+              GitHub tokens expire (a year at most). Create a{' '}
+              <a className="text-indigo-600 underline dark:text-indigo-400" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
+                new fine-grained token
+              </a>{' '}
+              for <code>{sync.repo}</code> (Contents: read and write) and paste it here; on your other devices, paste the new token or a fresh setup code
+              from this one. Nothing on this device is lost in the meantime.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <input type="password" className={inputClass} value={token} onChange={(e) => setToken(e.target.value)} placeholder="github_pat_… or setup code" autoComplete="off" />
+              <Button
+                disabled={!token.trim() || busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    await replaceToken(token);
+                    setToken('');
+                  } catch (e) {
+                    setError((e as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? 'Checking…' : 'Save token'}
+              </Button>
+            </div>
+            {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
+          </div>
+        )}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button onClick={() => void syncNow()} disabled={sync.status === 'syncing'}>
             <RefreshCw className={cn('h-4 w-4', sync.status === 'syncing' && 'animate-spin')} /> Sync now
