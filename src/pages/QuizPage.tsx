@@ -247,6 +247,14 @@ export function QuizPage() {
     [answer, item, revealed, i, patchAnswer],
   );
 
+  // X crosses out the selected answer and moves the selection to the next one still in play.
+  const strikeSelected = useCallback(() => {
+    if (!answer || !item || revealed) return;
+    if (!answer.chosen) return remind();
+    const struck = [...answer.struck, answer.chosen];
+    patchAnswer(i, { struck, chosen: stepChoice(item.order, answer.chosen, struck, 1) });
+  }, [answer, item, revealed, i, patchAnswer, remind]);
+
   const goto = useCallback(
     (j: number) => {
       if (!s || j < 0 || j >= s.items.length || j === i) return;
@@ -326,8 +334,11 @@ export function QuizPage() {
       else if (k === 'enter') {
         // A focused toolbar button handles Enter itself; a focused answer choice shouldn't swallow it.
         if (t.tagName === 'BUTTON' && t.getAttribute('role') !== 'radio') return;
-        next();
+        // Before answering, Enter locks in the selected answer as Sure; after, it goes to the next question.
+        if (!s.timed && !answer?.submitted) confide('sure');
+        else next();
       } else if (k === 'f') toggleFlag();
+      else if (k === 'x') strikeSelected();
       else if (k === 'n') openNote();
       else if (k === 'h') showHint();
       else if (k === 'z') void undo();
@@ -345,7 +356,7 @@ export function QuizPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, undo, goto, step]);
+  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, undo, goto, step, strikeSelected]);
 
   if (missing) {
     return (
@@ -598,7 +609,7 @@ export function QuizPage() {
           <dt><Kbd>↑</Kbd> <Kbd>↓</Kbd></dt><dd>Move to the previous / next answer (scroll once it's answered)</dd>
           <dt>Same key / click again</dt><dd>Lock in the selected answer as Sure</dd>
           <dt><Kbd>S</Kbd> <Kbd>U</Kbd> <Kbd>G</Kbd></dt><dd>Sure / Unsure / Guess {s.timed ? '(optional in exam mode)' : '— submits your answer'}</dd>
-          <dt><Kbd>Enter</Kbd></dt><dd>Next question{s.timed ? '' : ' (once answered)'}</dd>
+          <dt><Kbd>Enter</Kbd></dt><dd>{s.timed ? 'Next question' : 'Lock in the selected answer as Sure, then next question'}</dd>
           <dt><Kbd>←</Kbd> <Kbd>→</Kbd></dt><dd>Previous / next question, answered or not</dd>
           <dt><Kbd>F</Kbd></dt><dd>Flag / unflag</dd>
           <dt><Kbd>N</Kbd></dt><dd>Add a note</dd>
@@ -613,7 +624,7 @@ export function QuizPage() {
             </>
           )}
           <dt>Swipe left / right</dt><dd>Next / previous question (phones)</dd>
-          <dt>Right-click / long-press</dt><dd>Cross out an answer</dd>
+          <dt><Kbd>X</Kbd> / right-click / long-press</dt><dd>Cross out an answer (X crosses out the selected one)</dd>
         </dl>
         <div className="mt-4 flex justify-end">
           <Button variant="secondary" onClick={() => setHelpOpen(false)}>
