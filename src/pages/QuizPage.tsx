@@ -8,6 +8,7 @@ import { CONFIDENCE_LABEL, QuestionView } from '../components/QuestionView';
 import { Button, cn, Kbd, Modal } from '../components/ui';
 import { db, type Confidence, type QuizSession, type SessionAnswer, type StoredLecture, type StoredQuestion } from '../db';
 import { useLeechThreshold } from '../hooks/useSettings';
+import { stepChoice } from '../lib/choiceStep';
 import { formatDuration } from '../lib/dates';
 import { missCount, reachedLeech } from '../lib/settings';
 import { recordAttempts, undoAttempt, updateProgress } from '../lib/tracking';
@@ -234,6 +235,18 @@ export function QuizPage() {
     [s, answer, revealed, i, patchAnswer, confide],
   );
 
+  // ↑/↓ move the selection to the previous/next choice. Unlike select(), landing on a choice never locks it in.
+  // Returns false once the answer is revealed, so the arrows go back to scrolling the explanation.
+  const step = useCallback(
+    (delta: 1 | -1): boolean => {
+      if (!answer || !item || revealed) return false;
+      const optId = stepChoice(item.order, answer.chosen, answer.struck, delta);
+      if (optId && optId !== answer.chosen) patchAnswer(i, { chosen: optId });
+      return true;
+    },
+    [answer, item, revealed, i, patchAnswer],
+  );
+
   const goto = useCallback(
     (j: number) => {
       if (!s || j < 0 || j >= s.items.length || j === i) return;
@@ -323,13 +336,16 @@ export function QuizPage() {
         if (s.timed || answer?.submitted) next();
         else goto(i + 1);
       } else if (k === 'arrowleft') goto(i - 1);
+      else if (k === 'arrowdown' || k === 'arrowup') {
+        if (!step(k === 'arrowdown' ? 1 : -1)) return; // let the page scroll
+      }
       else if (k === '?') setHelpOpen(true);
       else return;
       e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, undo, goto]);
+  }, [noteOpen, endOpen, helpOpen, s, item, answer, i, select, confide, next, toggleFlag, openNote, showHint, undo, goto, step]);
 
   if (missing) {
     return (
@@ -579,6 +595,7 @@ export function QuizPage() {
       <Modal open={helpOpen} onClose={() => setHelpOpen(false)} title="Keyboard shortcuts">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           <dt><Kbd>1</Kbd>–<Kbd>5</Kbd> / <Kbd>A</Kbd>–<Kbd>E</Kbd></dt><dd>Select an answer</dd>
+          <dt><Kbd>↑</Kbd> <Kbd>↓</Kbd></dt><dd>Move to the previous / next answer (scroll once it's answered)</dd>
           <dt>Same key / click again</dt><dd>Lock in the selected answer as Sure</dd>
           <dt><Kbd>S</Kbd> <Kbd>U</Kbd> <Kbd>G</Kbd></dt><dd>Sure / Unsure / Guess {s.timed ? '(optional in exam mode)' : '— submits your answer'}</dd>
           <dt><Kbd>Enter</Kbd></dt><dd>Next question{s.timed ? '' : ' (once answered)'}</dd>

@@ -111,7 +111,7 @@ reported). Question and option order are shuffled. Answers are stored against
 the original option ids, so the display letters don't matter. Questions you got
 right in the last *N* days (default 3) are skipped unless they're due.
 
-**Keyboard:** `1`–`5` / `A`–`E` select · `S` / `U` / `G` = Sure / Unsure / Guess
+**Keyboard:** `1`–`5` / `A`–`E` select · `↑` / `↓` previous / next answer (scroll once answered) · `S` / `U` / `G` = Sure / Unsure / Guess
 (submits in tutor mode) · `Enter` next · `←` back · `F` flag · `N` note · `H` hint · `Z` undo · `?` help.
 You can move back and forth without answering: use the arrows in the bottom bar, the `←`/`→` keys, or
 the progress bar. On a phone, swipe left for the next question and right for the previous one.
