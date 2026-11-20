@@ -112,7 +112,7 @@ the original option ids, so the display letters don't matter. Questions you got
 right in the last *N* days (default 3) are skipped unless they're due.
 
 **Keyboard:** `1`–`5` / `A`–`E` select · `↑` / `↓` previous / next answer (scroll once answered) · `S` / `U` / `G` = Sure / Unsure / Guess
-(submits in tutor mode) · `Enter` lock in as Sure, then next · `X` cross out the selected answer · `←` back · `F` flag · `N` note · `H` hint · `Z` undo · `?` help.
+(submits in tutor mode; `S` again = next) · `Enter` lock in as Sure, then next · `X` cross out the selected answer · `←` back · `F` flag · `N` note · `H` hint · `Z` undo · `?` help.
 You can move back and forth without answering: use the arrows in the bottom bar, the `←`/`→` keys, or
 the progress bar. On a phone, swipe left for the next question and right for the previous one.
 Questions you skip stay unanswered until you come back to them, and aren't recorded if you finish without them.

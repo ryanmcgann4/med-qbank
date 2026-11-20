@@ -328,7 +328,11 @@ export function QuizPage() {
         select(item.order[Number(k) - 1]);
       } else if (/^[a-e]$/.test(k) && k.charCodeAt(0) - 97 < n) {
         select(item.order[k.charCodeAt(0) - 97]);
-      } else if (k === 's') confide('sure');
+      } else if (k === 's') {
+        // Pressing S again once it's answered goes on, so one key (or remote button) does both.
+        if (!s.timed && answer?.submitted) next();
+        else confide('sure');
+      }
       else if (k === 'u') confide('unsure');
       else if (k === 'g') confide('guess');
       else if (k === 'enter') {
@@ -608,7 +612,7 @@ export function QuizPage() {
           <dt><Kbd>1</Kbd>–<Kbd>5</Kbd> / <Kbd>A</Kbd>–<Kbd>E</Kbd></dt><dd>Select an answer</dd>
           <dt><Kbd>↑</Kbd> <Kbd>↓</Kbd></dt><dd>Move to the previous / next answer (scroll once it's answered)</dd>
           <dt>Same key / click again</dt><dd>Lock in the selected answer as Sure</dd>
-          <dt><Kbd>S</Kbd> <Kbd>U</Kbd> <Kbd>G</Kbd></dt><dd>Sure / Unsure / Guess {s.timed ? '(optional in exam mode)' : '— submits your answer'}</dd>
+          <dt><Kbd>S</Kbd> <Kbd>U</Kbd> <Kbd>G</Kbd></dt><dd>Sure / Unsure / Guess {s.timed ? '(optional in exam mode)' : '— submits your answer; S again goes to the next question'}</dd>
           <dt><Kbd>Enter</Kbd></dt><dd>{s.timed ? 'Next question' : 'Lock in the selected answer as Sure, then next question'}</dd>
           <dt><Kbd>←</Kbd> <Kbd>→</Kbd></dt><dd>Previous / next question, answered or not</dd>
           <dt><Kbd>F</Kbd></dt><dd>Flag / unflag</dd>
